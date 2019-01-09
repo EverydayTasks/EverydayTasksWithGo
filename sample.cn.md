@@ -17,6 +17,39 @@ Go语言内置集成了文件I/O的功能。介绍。
 
 最基础的文件读取。
 
+Go语言提供了一个方便函数，ioutil.ReadFile()，可以直接读取文件内容，得到的是一个[]byte数组：
+
+```go
+package main
+
+import (
+    "fmt"
+    "io/ioutil"
+)
+
+func main() {
+
+	// 读取文件内容
+	buf, err := ioutil.ReadFile("hello.txt")
+
+	// 错误处理
+	if err != nil {
+		panic(err)
+ 	}
+
+	// 使用内置的string()函数将buf数组转换成字符串打印
+	fmt.Println(string(buf))
+}
+```
+
+这个函数很方便，直接调用就可以读取整个文件内容。但是这种使用方式只适合小文件，文件较大之后，就需要分段读取了。
+
+Go语言提供的标准的读取方法是这样的：
+
+```go
+
+```
+
 最基础的文件写入。
 
 ## 1.3 文件I/O细节
