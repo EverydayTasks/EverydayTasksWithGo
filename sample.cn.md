@@ -47,7 +47,34 @@ func main() {
 Go语言提供的标准的读取方法是这样的：
 
 ```go
+package main
 
+import (
+    "fmt"
+    "io/ioutil"
+)
+
+func main() {
+
+	// 打开文件
+	f, err := os.Open("hello.txt")
+	// 错误处理
+	if err != nil {
+		panic(err)
+ 	}
+	
+	buf := make([]byte, 10)
+	// 读取文件内容到缓冲buf里
+	n, err := f.Read(buf)
+
+	// 错误处理
+	if err != nil {
+		panic(err)
+ 	}
+
+	// 使用内置的string()函数将buf数组转换成字符串打印
+	fmt.Println(string(buf))
+}
 ```
 
 最基础的文件写入。
