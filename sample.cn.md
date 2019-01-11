@@ -62,7 +62,9 @@ func main() {
 	if err != nil {
 		panic(err)
  	}
+	defer f.Close()
 	
+	// 新建缓冲
 	buf := make([]byte, 10)
 	// 读取文件内容到缓冲buf里
 	n, err := f.Read(buf)
@@ -81,11 +83,13 @@ func main() {
 
 ## 1.3 文件I/O细节
 
-利用buffer。
+根据索引读取文件部分
 
-根据索引读取
+bufio
 
-读写整个文件的方便函数
+ioutil
+
+按行读取(byLine)
 
 ## 1.4 文件I/O进阶
 
