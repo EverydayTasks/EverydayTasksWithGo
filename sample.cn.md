@@ -1,6 +1,5 @@
 # 样章：文件I/O
 
-
 ## 1.1 话题介绍
 
 **TODO** 需要一个更能够体现编程哲学的精彩开头
@@ -17,7 +16,7 @@ Go语言内置集成了文件I/O的功能。介绍。
 
 最基础的文件读取。
 
-Go语言提供了一个方便函数，ioutil.ReadFile()，可以直接读取文件内容，得到的是一个[]byte数组：
+Go语言提供了一个方便函数，`ioutil.ReadFile()`，可以直接读取文件内容，得到的是一个`[]byte`数组：
 
 ```go
 package main
@@ -93,8 +92,48 @@ func main() {
 看完了文件读取，我们来看看最基础的文件写入。
 
 ```go
-// TODO: basic file write
+package main
+
+import "io/ioutil"
+
+func main() {
+	data := []byte("Hello World!\n")
+	ioutil.WriteFile("E:/hello_out.txt", data, 0644)
+}
 ```
+
+这里，`ioutil.WriteFile()`的第三个参数是`FileMode`，使用UNIX文件权限编码。这里`0644`开头的0表示八进制数字。
+
+如果要用缓冲数组写入，可以这么做：
+
+```go
+// TODO: write with a buffer
+```
+
+如果不想覆盖已有文件，而是在其后添加内容，则可以使用APPEND模式打开文件，再写入：
+
+```go
+package main
+
+import "os"
+
+func main() {
+	f, err := os.OpenFile("E:/append.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	if _, err := f.WriteString("a new line\n"); err != nil {
+		panic(err)
+	}
+	if err := f.Close(); err != nil {
+		panic(err)
+	}
+}
+
+```
+
+注意，这里不但有`os.O_APPEND`，还使用了`os.O_CREATE`，表示如果文件不存在，则新建该文件并写入内容。如果文件存在，则使用`APPEND`模式往后添加新内容。
+
 
 OK，到此为止我们看到了Go语言文件基本读写的功能。我相信大家在阅读本书之前一定都看过类似的入门介绍，因此本节并没有详细讲述，而只是列出来供大家参考而已。本书的重点，在于本章后面会讲到的，更多的读写相关的细节。
 
@@ -133,7 +172,7 @@ func main() {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	// Scanner.scan() returns an enumeration of lines
+	// Scan() until end of file
 	for scanner.Scan() {
 		// One line of text
 		fmt.Println(scanner.Text())
@@ -174,7 +213,7 @@ func main() {
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(buf, bufCap)
 
-	// Scanner.scan() returns an enumeration of lines
+	// Scan() until end of file
 	for scanner.Scan() {
 		// One line of text
 		fmt.Println(scanner.Text())
@@ -226,7 +265,7 @@ func main() {
 	scanner := bufio.NewScanner(file)
 
 	n := 0
-	// Scanner.scan() returns an enumeration of lines
+	// Scan() until end of file
 	for scanner.Scan() {
 		n++
 		// if current line number is greater than N, quit
@@ -268,7 +307,7 @@ func main() {
 	scanner := bufio.NewScanner(file)
 
 	n := 0
-	// Scanner.scan() returns an enumeration of lines
+	// Scan() until end of file
 	for scanner.Scan() {
 		n++
 		// if current line number is greater than N, quit
@@ -291,9 +330,13 @@ func main() {
 ```go
 ```
 
-但这种简单的办法显然效率不高，我们应当模仿UNIX系统的`tail`命令来实现这个功能：
+但这种简单的办法显然效率不高，我们应当模仿UNIX系统的`tail`命令来实现这个功能，即先利用`Seek()`跳转到文件结尾，然后用缓冲区从结尾往前读取，每次读取一个缓冲区，并分析其内容，如果发现换行符，则得到了一行文本。这样反复往前读，直到读到了N行文本为止。这里代码需要处理缓冲区到文本行的转换，实际上是要自己实现`bufio`的内部细节内容。代码如下：
 
-最后，关于`tail`，有一个开源的第三方库<https://github.com/hpcloud/tail>实现了完整的tail功能，而且还实现了类似`tail -f`的实时跟踪文件新写入内容的功能。我们会在最后一节“扩展话题”里专门详述tail的实现。
+```go
+// TODO: implement backward reading N lines with Seek() and a buffer
+```
+
+最后，关于`tail`，有一个开源的第三方库<https://github.com/hpcloud/tail>实现了完整的tail功能，而且还实现了类似`tail -f`的实时跟踪文件新写入内容的功能。我们会在最后一节“扩展话题”里专门研究这个第三方库的设计和实现。
 
 ### Go语言标准库提供的其他方便功能
 
@@ -303,11 +346,121 @@ ioutil
 
 ## 1.4 文件I/O进阶
 
+文件编码与unicode
+
+Go语言默认的文件编码是UTF-8，如果需要打开其他编码的文件，比如GBK，需要使用encoding模块。Go语言官方提供的编码模块在<golang.org/x/text/encoding>，这个模块将来可能会加入到标准库中。
+
+我们先看看如何读取GBK格式的文件：
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
+)
+
+func main() {
+	readGBK("E:/gbk_sample.txt")
+}
+
+// Read UTF-8 from a GBK encoded file.
+func readGBK(filename string) {
+	f, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	// Use GBK encoding
+	enc := simplifiedchinese.GBK
+	// make a transform reader with GBK decoder
+	r := transform.NewReader(f, enc.NewDecoder())
+
+	// Read converted UTF-8 from `r` as needed.
+	// As an example we'll read line-by-line showing what was read:
+	sc := bufio.NewScanner(r)
+	for sc.Scan() {
+		fmt.Printf("Read line: %s\n", sc.Bytes())
+	}
+	if err = sc.Err(); err != nil {
+		panic(err)
+	}
+
+}
+```
+
+然后，不同编码格式的文件可以在内存中进行转换：
+
+```go
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
+)
+
+// 读取GBK编码的数据，转化成标准编码UTF8
+func decodeGBK(s []byte) ([]byte, error) {
+	reader := transform.NewReader(bytes.NewReader(s), simplifiedchinese.GBK.NewDecoder())
+	d, e := ioutil.ReadAll(reader)
+	if e != nil {
+		return nil, e
+	}
+	return d, nil
+}
+
+// 把标准编码UTF8的数据，转化成GBK编码
+func encodeGbk(s []byte) ([]byte, error) {
+	reader := transform.NewReader(bytes.NewReader(s), simplifiedchinese.GBK.NewEncoder())
+	d, e := ioutil.ReadAll(reader)
+	if e != nil {
+		return nil, e
+	}
+	return d, nil
+}
+
+func main() {
+
+	s := "你好，明天！"
+	gbk, err := decodeGBK([]byte(s))
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(string(gbk))
+	}
+
+	utf8, err := encodeGbk(gbk)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(string(utf8))
+	}
+}
+```
+
+这里只是内存中转换，要进行文件转换，下面我们展示如下的转换过程：
+
+开头，hello.GBK.txt文件里存放的是GBK编码的“你好，明天！”，我们读入该文件，用GBK解码成为标准编码UTF8的格式，写入到hello.UTF8.txt中。然后我们再读取hello.UTF8.txt，在内存中转换为GBK格式，再写入到 hello.GBK.new.txt中。
+
+```go
+
+```
+
+
+
 内存映射
 
-二进制文件读写
+参考第三方开源工程[mmap-go](https://github.com/edsrzf/mmap-go)。
 
-文件编码、unicode
 
 ## 1.5 并发读写
 
@@ -325,15 +478,11 @@ ioutil
 
 ## 1.6 文件I/O的应用
 
-head | tail | slice
-
 文件分割
 
 按内容分割
 
 文件合并（多路归并）
-
-## 1.7 扩展话题
 
 CSV读写。
 
@@ -347,3 +496,8 @@ Go标准库提供了"encoding/csv"模组，参考https://golang.org/pkg/encoding
 扫描计算。
 
 文件模板。
+
+## 1.7 扩展话题：相关第三方库赏析
+
+tail库：<https://github.com/hpcloud/tail>
+
