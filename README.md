@@ -12,16 +12,18 @@ A mid level Golang book for everyday programming tasks.
 
 # 目录 | Contents
 
-- [引言](chapter1.md) - 概述本书的定位和内容
-- [并发](concurrency.cn.md) - Go语言最强大的工具
-- [数据](data.cn.md) - 大宝天天见！
-- [文件](file.cn.md) - 我要存下去
-- [网络](network.cn.md) - Go最多的应用场景
-- [WEB](network.cn.md) - Go的新土地
-- [分布式](distributed.cn.md) - 并发的扩展
-- [Debug](debug.cn.md) - 不想见到你
-- [运维](devops.cn.md) - 可靠性的关键
-- [科学计算](scientific.cn.md) - Python的领土
+整体进度：[1%]
+
+- [引言](chapter1.md) - [0%] 概述本书的定位和内容
+- [并发](concurrency.cn.md) - [0%] Go语言最强大的工具
+- [数据](data.cn.md) - [0%] 大宝天天见！
+- [文件](file.cn.md) - [50%] 我要存下去
+- [网络](network.cn.md) - [0%] Go最多的应用场景
+- [WEB](network.cn.md) - [0%] Go的新土地
+- [分布式](distributed.cn.md) - [0%] 并发的扩展
+- [Debug](debug.cn.md) - [0%] 不想见到你
+- [运维](devops.cn.md) - [0%] 可靠性的关键
+- [科学计算](scientific.cn.md) - [0%] Python的领土
 
 
 # 介绍 | Introduction
