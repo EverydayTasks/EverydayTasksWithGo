@@ -794,3 +794,5 @@ Viper: <https://github.com/spf13/viper>。最强大的配置框架。支持多�
 ## 1.7 扩展话题：相关第三方库赏析
 
 tail库：<https://github.com/hpcloud/tail>
+
+viper库：<https://github.com/spf13/viper>
