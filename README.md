@@ -1,15 +1,16 @@
-# EverydayTasksWithGo
-A mid level Golang book for everyday programming tasks
+# 《Go语言日常》 | Everyday Tasks With Go
 
-## Contents
+Go语言进阶书籍，讲述日常开发中遇到的各种任务和解决方案。
 
-[Sample Chapter](file.cn.md)
+A mid level Golang book for everyday programming tasks.
+
+# 样章 | Sample Chapter
+
+- [样章：文件操作](file.cn.md)
+- [Sample Chapter](file.cn.md)
 
 
-## 目录
-
-[样章](sample.cn.md)
-
+# 目录 | Contents
 
 - [第〇章：引言](chapter1.md) 概述本书的定位和内容
 - [第一章：并发](concurrency.cn.md) Go语言最强大的工具
