@@ -11,7 +11,7 @@
 	- [1.3 文件I/O细节](#13-%E6%96%87%E4%BB%B6io%E7%BB%86%E8%8A%82)
 		- [场景1：按行读取](#%E5%9C%BA%E6%99%AF1%E6%8C%89%E8%A1%8C%E8%AF%BB%E5%8F%96)
 		- [场景2：读取文件的部分](#%E5%9C%BA%E6%99%AF2%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E7%9A%84%E9%83%A8%E5%88%86)
-			- [二进制文件](#%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%96%87%E4%BB%B6)
+			- [按字节数读取](#%E6%8C%89%E5%AD%97%E8%8A%82%E6%95%B0%E8%AF%BB%E5%8F%96)
 			- [文本文件](#%E6%96%87%E6%9C%AC%E6%96%87%E4%BB%B6)
 		- [Go语言标准库提供的其他方便功能](#go%E8%AF%AD%E8%A8%80%E6%A0%87%E5%87%86%E5%BA%93%E6%8F%90%E4%BE%9B%E7%9A%84%E5%85%B6%E4%BB%96%E6%96%B9%E4%BE%BF%E5%8A%9F%E8%83%BD)
 	- [1.4 文件I/O进阶](#14-%E6%96%87%E4%BB%B6io%E8%BF%9B%E9%98%B6)
@@ -77,11 +77,7 @@
 
 ### 文件写入
 
-我们先写入一个英文文本，内容如下：
-
-
-
-我们用最简单的办法来写入文件：
+我们先用最简单的办法来写入文件：
 
 ```go
 package main
@@ -488,22 +484,89 @@ TODO：实现可变长缓冲区的`Scanner`，即背后不用`[]byte`数组，�
 2. 读取文件中间的一部分
 3. 读取文件结尾的一部分
 
-#### 二进制文件
+#### 按字节数读取
 
-首先，对于二进制文件，假设我们需要读取长度为N个字节的数据。
+首先，假设我们需要读取长度为N个字节的数据。
 
-那么对于需求一，如果N并不大，可以用一个`[]byte`数组存放，则非常简单：
+那么对于需求一，如果N并不大，可以用一个`[]byte`数组存放，则非常简单，我们只需要新建一个大小为N的`[]byte`数组，然后直接使用`f.Read()`读取到数组满为止即可。
 
 ```go
+package main
 
+import (
+	"fmt"
+	"os"
+)
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func main() {
+	f, err := os.Open("D:/sonnet18.txt")
+	check(err)
+
+	N := 10
+	b := make([]byte, N)
+	n, err := f.Read(b)
+	check(err)
+	fmt.Printf("read %d bytes: [%s]\n", n, string(b))
+}
+
+```
+
+上述代码打印出来的结果是：
+
+```
+read 10 bytes: [Sonnet 18 ]
 ```
 
 如果N比较大，则需要多次读取，一直读到足够N字节即可：
 
 ```go
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func main() {
+	f, err := os.Open("D:/sonnet18.txt")
+	check(err)
+
+	N := 100
+
+	b := make([]byte, 10)
+	nRead := 0
+	for {
+		n, err := f.Read(b)
+		check(err)
+		// 记录中国读了多少字节
+		nRead += n
+		// 如果还没足够N，处理掉当前读到的数据，并继续
+		if nRead <= N {
+			// 处理当前的一段
+			fmt.Printf("read %d bytes: [%s]\n", n, string(b))
+		} else { // 足够N了，处理掉最后读到的一小段数据（直到N为止），然后跳出
+			// 处理最后读到的一小段
+			nTail := n - (nRead - N)
+			fmt.Printf("read %d bytes: [%s]\n", nTail, string(b[:nTail]))
+			break
+		}
+	}
+}
 ```
 
-而对于需求二，读取中间部分的数据，假设我们需要读取文件从第M字节到第N字节的数据，则可以使用`Seek()`函数跳转到文件第M个字节，再连续读到第N个字节即可。这里示例是N-M很大，需要多次读取的情况：
+对于需求二，读取中间部分的数据，假设我们需要读取文件从第M字节到第N字节的数据，则可以使用`Seek()`函数跳转到文件第M个字节，再连续读到第N个字节即可。这里示例是N-M很大，需要多次读取的情况：
 
 ```go
 ```
