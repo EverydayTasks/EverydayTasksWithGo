@@ -3,6 +3,11 @@
 - [样章：文件I/O](#%E6%A0%B7%E7%AB%A0%E6%96%87%E4%BB%B6io)
 	- [1.1 话题介绍](#11-%E8%AF%9D%E9%A2%98%E4%BB%8B%E7%BB%8D)
 	- [1.2 Go语言内置的文件I/O基础](#12-go%E8%AF%AD%E8%A8%80%E5%86%85%E7%BD%AE%E7%9A%84%E6%96%87%E4%BB%B6io%E5%9F%BA%E7%A1%80)
+		- [文件写入](#%E6%96%87%E4%BB%B6%E5%86%99%E5%85%A5)
+		- [多次写入](#%E5%A4%9A%E6%AC%A1%E5%86%99%E5%85%A5)
+		- [bufio写入](#bufio%E5%86%99%E5%85%A5)
+		- [最基础的文件读取](#%E6%9C%80%E5%9F%BA%E7%A1%80%E7%9A%84%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96)
+		- [添加文件内容](#%E6%B7%BB%E5%8A%A0%E6%96%87%E4%BB%B6%E5%86%85%E5%AE%B9)
 	- [1.3 文件I/O细节](#13-%E6%96%87%E4%BB%B6io%E7%BB%86%E8%8A%82)
 		- [场景1：按行读取](#%E5%9C%BA%E6%99%AF1%E6%8C%89%E8%A1%8C%E8%AF%BB%E5%8F%96)
 		- [场景2：读取文件的部分](#%E5%9C%BA%E6%99%AF2%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E7%9A%84%E9%83%A8%E5%88%86)
@@ -23,6 +28,7 @@
 		- [删除文件](#%E5%88%A0%E9%99%A4%E6%96%87%E4%BB%B6)
 		- [重命名和移动](#%E9%87%8D%E5%91%BD%E5%90%8D%E5%92%8C%E7%A7%BB%E5%8A%A8)
 		- [复制文件](#%E5%A4%8D%E5%88%B6%E6%96%87%E4%BB%B6)
+		- [文件信息查询](#%E6%96%87%E4%BB%B6%E4%BF%A1%E6%81%AF%E6%9F%A5%E8%AF%A2)
 		- [搜索](#%E6%90%9C%E7%B4%A2)
 		- [同步](#%E5%90%8C%E6%AD%A5)
 		- [文件备份](#%E6%96%87%E4%BB%B6%E5%A4%87%E4%BB%BD)
@@ -65,13 +71,153 @@
 
 ## 1.2 Go语言内置的文件I/O基础
 
-Go语言内置集成了文件I/O的功能。介绍。
+首先我们先回顾一下Go语言提供的基础文件读写功能。虽然一般入门书籍基本上都已经介绍过这个话题，但作为后面文复杂件I/O应用的基石，我们还是先过一遍。顺便也准备好后面用得到的示例文件。
 
-TODO: 先准备两个文件，一个英文的，可以使用莎士比亚之类的英文诗；另一个中文的，可以使用诗经的一首诗。还得考虑一个典型的二进制文件示例。
+在一切工作开始之前，我们先准别三个文件：一个英文文本文件；一个UTF8格式的中文文本文件；一个二进制数据文件。恰好Go语言标准库提供了三种写入文件的方法，我们一一举例。
 
-TODO: 先介绍基础写文件，并由此准备好上述三个示例文件，供下文的读文件章节用于作为示例。
+### 文件写入
 
-最基础的文件读取。
+我们先写入一个英文文本，内容如下：
+
+
+
+我们用最简单的办法来写入文件：
+
+```go
+package main
+
+import "io/ioutil"
+
+func main() {
+	// 准备文本
+	text := `关雎 
+关关雎鸠，在河之洲。
+窈窕淑女，君子好逑。
+参差荇菜，左右流之。
+窈窕淑女，寤寐求之。
+求之不得，寤寐思服。
+悠哉悠哉，辗转反侧。
+参差荇菜，左右采之。
+窈窕淑女，琴瑟友之。
+参差荇菜，左右芼之。
+窈窕淑女，钟鼓乐之。`
+
+	// 将文本转为二进制数据
+	data := []byte(text)
+
+	// 使用方便函数ioutil.WriteFile直接写入文件
+	ioutil.WriteFile("D:/guanju.utf8.txt", data, 0644)
+}
+
+```
+
+这里使用了`ioutil.WriteFile`，这是Go语言标准库提供的方便函数，一般只在文件内容很短的时候一次性使用。比如我们现在的示例，就符合这个场景。但是如果要写入更大的文件，显然一次写入会占用大量内存，那样就需要多次写入了。
+
+`ioutil.WriteFile()`的第三个参数是`FileMode`，使用UNIX文件权限编码。这里`0644`开头的0表示八进制数字。
+
+### 多次写入
+
+
+```go
+package main
+
+import "os"
+
+func main() {
+	// 准备文本
+	text := []string{
+		"Sonnet 18 by William Shakespeare\n",
+		"Shall I compare thee to a summer's day?\n",
+		"Thou art more lovely and more temperate:\n",
+		"Rough winds do shake the darling buds of May,\n",
+		"And summer's lease hath all too short a date:\n",
+		"Sometime too hot the eye of heaven shines,\n",
+		"And often is his gold complexion dimm'd;\n",
+		"And every fair from fair sometime declines,\n",
+		"By chance or nature's changing course untrimm'd;\n",
+		"But thy eternal summer shall not fade\n",
+		"Nor lose possession of that fair thou owest;\n",
+		"Nor shall Death brag thou wander'st in his shade,\n",
+		"When in eternal lines to time thou growest:\n",
+		"So long as men can breathe or eyes can see,\n",
+		"So long lives this and this gives life to thee.",
+	}
+
+	// 创建文件
+	file, err := os.Create("D:/sonnet18.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	// 逐行写入
+	for _, line := range text {
+		file.WriteString(line)
+	}
+}
+
+```
+
+这里使用的文本是莎士比亚154首十四行诗的第十八首。可以参考维基百科<https://en.wikipedia.org/wiki/Sonnet_18>或百度百科<https://baike.baidu.com/item/sonnet%2018>的介绍。
+
+这里我们不再一次性写入整个文本，而是把文本分解成一行行，再分别写入。这里只是个示例，实际程序中，为了节省内存而进行多次写入的场景中，数据一般都是从其他来源分步取过来的（例如数据库、HTTP请求，或者分布式消息队列），这时候就不用都存到内存中，而是来一个写一个了。
+
+这里其实还有一个问题，就是直接使用`file.WriteString()`，或者`file.Write(b []byte)`的话，每次写入都会调用一次磁盘I/O操作，所以如果每次写入的数据特别小（例如我们这里给出的例子中一行诗歌就太短了），写入次数特别多的话，会浪费大量的I/O资源，性能较差。实际上，如果是这种情况，应当使用缓冲区写入`bufio`。
+
+### bufio写入
+
+```go
+package main
+
+import (
+	"bufio"
+	"os"
+)
+
+func main() {
+	// 准备文本
+	text := []string{
+		"Sonnet 18 by William Shakespeare\n",
+		"Shall I compare thee to a summer's day?\n",
+		"Thou art more lovely and more temperate:\n",
+		"Rough winds do shake the darling buds of May,\n",
+		"And summer's lease hath all too short a date:\n",
+		"Sometime too hot the eye of heaven shines,\n",
+		"And often is his gold complexion dimm'd;\n",
+		"And every fair from fair sometime declines,\n",
+		"By chance or nature's changing course untrimm'd;\n",
+		"But thy eternal summer shall not fade\n",
+		"Nor lose possession of that fair thou owest;\n",
+		"Nor shall Death brag thou wander'st in his shade,\n",
+		"When in eternal lines to time thou growest:\n",
+		"So long as men can breathe or eyes can see,\n",
+		"So long lives this and this gives life to thee.",
+	}
+
+	// 创建文件
+	file, err := os.Create("D:/sonnet18.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	// 新建一个带缓冲区的bufio.Writer
+	w := bufio.NewWriter(file)
+	// 逐行写入
+	for _, line := range text {
+		w.WriteString(line)
+	}
+
+	// 强制flush缓冲区
+	w.Flush()
+}
+```
+
+可以看到，使用缓冲区写的话，其实就是在`os.Writer`之后再套一层`bufio.NewWriter`，其他的操作基本相同。需要注意的是，`bufio.Writer`写入数据时并不是直接写到文件，而是先写到一个内存缓冲区，等缓冲区满了之后再刷到硬盘上。我们示例中数据量较小，所以必须在最后加一句`w.Flush()`，否则数据没有刷到硬盘上程序就结束了，会发现文件是空的。
+
+至此我们准备好两个文件：sonnet18.txt，guanju.utf8.txt。下面看看怎么读取他们。
+
+### 最基础的文件读取
 
 Go语言提供了一个方便函数，`ioutil.ReadFile()`，可以直接读取文件内容，得到的是一个`[]byte`数组：
 
@@ -86,7 +232,7 @@ import (
 func main() {
 
 	// 读取文件内容
-	buf, err := ioutil.ReadFile("E:/a.txt")
+	buf, err := ioutil.ReadFile("D:/sonnet18.txt")
 
 	// 错误处理
 	if err != nil {
@@ -113,7 +259,7 @@ import (
 func main() {
 
 	// 打开文件
-	f, err := os.Open("E:/a.txt")
+	f, err := os.Open("D:/sonnet18.txt")
 	// 错误处理
 	if err != nil {
 		panic(err)
@@ -151,7 +297,7 @@ import (
 
 func main() {
 	// 打开文件
-	f, err := os.Open("E:/a.txt")
+	f, err := os.Open("D:/sonnet18.txt")
 	// 错误处理
 	if err != nil {
 		panic(err)
@@ -179,34 +325,10 @@ func main() {
 
 在实际使用中，这样用缓冲数组读取文件内容的方法还是太过底层了。不论我们的文件是格式化的二进制，还是文本文件，都需要进一步处理。格式化的二进制文件进一步如何处理，和其文件具体格式直接关联，因此我们不在这里作通论，而是在后面讨论具体的格式时再详谈，如protobuf格式等。而文本文件，则不管是什么格式，一般都要处理分隔符（最常见的是换行符`'\n'`），因此我们会在下一节讨论文本按行读取这个最常见的需求。
 
-看完了文件读取，我们来看看最基础的文件写入。
 
-```go
-package main
+### 添加文件内容
 
-import "io/ioutil"
-
-func main() {
-	data := []byte("Hello World!\n")
-	ioutil.WriteFile("E:/hello_out.txt", data, 0644)
-}
-```
-
-这里，`ioutil.WriteFile()`的第三个参数是`FileMode`，使用UNIX文件权限编码。这里`0644`开头的0表示八进制数字。
-
-上面这个函数是一次性写入整个文件的内容，实际操作中只有处理小文件时为了方便才会使用。一般情况下，程序要写入文件的数据都会比较大，而且不是一次性准备好的。比如记录日志，或者从网络上传的流数据。因此我们可以使用多次写入的`Write()`函数，往文件中直接写入`[]byte`数组数据。
-
-
-```go
-// TODO: write with a buffer
-```
-
-如果是文本文件，还可以使用`WriteString()`函数来写入：
-
-```go
-```
-
-如果不想覆盖已有文件，而是在其后添加内容，则可以使用APPEND模式打开文件，再写入：
+在向文件写入时，如果不想覆盖已有文件，而是在其后添加内容，则可以使用APPEND模式打开文件，再写入：
 
 ```go
 package main
@@ -214,7 +336,7 @@ package main
 import "os"
 
 func main() {
-	f, err := os.OpenFile("E:/append.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile("D:/append.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -228,11 +350,10 @@ func main() {
 
 ```
 
+
 注意，这里不但有`os.O_APPEND`，还使用了`os.O_CREATE`，表示如果文件不存在，则新建该文件并写入内容。如果文件存在，则使用`APPEND`模式往后添加新内容。
 
-上述这几个写入操作都还有一个性能问题：每次写入时，是直接向硬盘写入的，如果单次内容很少，写入次数很多，会浪费大量的I/O操作资源。因此，Go标准库还提供了`bufio`的写入模块，这里的写入操作，都会先写入到一个缓冲区中，待到缓冲区满了，再自动写入到文件中去。这样可以大大减少I/O操作，明显提高性能。
-
-// TODO: bufio的写文件示例
+这个程序如果多运行几次，就会发现`D:/append.txt`的内容不断增加了。
 
 OK，到此为止我们看到了Go语言文件基本读写的功能。我相信大家在阅读本书之前一定都看过类似的入门介绍，因此本节并没有详细讲述，而只是列出来供大家参考而已。本书的重点，在于本章后面会讲到的，更多的读写相关的细节。
 
@@ -368,6 +489,7 @@ TODO：实现可变长缓冲区的`Scanner`，即背后不用`[]byte`数组，�
 3. 读取文件结尾的一部分
 
 #### 二进制文件
+
 首先，对于二进制文件，假设我们需要读取长度为N个字节的数据。
 
 那么对于需求一，如果N并不大，可以用一个`[]byte`数组存放，则非常简单：
@@ -751,6 +873,8 @@ TODO: 描述mmap-go对内存映射的基本实现
 ### 重命名和移动
 
 ### 复制文件
+
+### 文件信息查询
 
 ### 搜索
 
