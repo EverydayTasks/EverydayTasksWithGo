@@ -17,14 +17,24 @@ A mid level Golang book for everyday programming tasks.
 - [ 0%] [引言](chapter1.md) - 概述本书的定位和内容
 - [ 0%] [并发](concurrency.cn.md) - Go语言最强大的工具
 - [ 0%] [数据](data.cn.md) - 大宝天天见！
+- [ 0%] [时间](time.cn.md)
 - [**50%**] [文件](file.cn.md) - 我要存下去
 - [ 0%] [网络](network.cn.md) - Go最多的应用场景
 - [ 0%] [WEB](network.cn.md) - Go的新土地
+- [ 0%] [数据库](database.cn.md) - 互联网的脊梁
+- [ 0%] [安全](security.cn.md)
 - [ 0%] [分布式](distributed.cn.md) - 并发的扩展
 - [ 0%] [Debug](debug.cn.md) - 不想见到你
 - [ 0%] [运维](devops.cn.md) - 可靠性的关键
 - [ 0%] [科学计算](scientific.cn.md) - Python的领土
-
+- [ 0%] [大数据](bigdata.cn.md) 
+- [ 0%] [可视化](visualization.cn.md)
+- [ 0%] [AI](ai.cn.md)
+- [ 0%] [嵌入式](embedded.cn.md)
+- [ 0%] [机器人](robot.cn.md)
+- [ 0%] [图像处理](image.cn.md)
+- [ 0%] [多媒体](multimedia.cn.md)
+- [ 0%] [游戏](game.cn.md)
 
 # 介绍 | Introduction
 
