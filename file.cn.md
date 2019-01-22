@@ -12,6 +12,7 @@
 		- [场景1：按行读取](#%E5%9C%BA%E6%99%AF1%E6%8C%89%E8%A1%8C%E8%AF%BB%E5%8F%96)
 		- [场景2：读取文件的部分](#%E5%9C%BA%E6%99%AF2%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E7%9A%84%E9%83%A8%E5%88%86)
 			- [按字节数读取](#%E6%8C%89%E5%AD%97%E8%8A%82%E6%95%B0%E8%AF%BB%E5%8F%96)
+			- [读取第M字节到第N字节](#%E8%AF%BB%E5%8F%96%E7%AC%ACm%E5%AD%97%E8%8A%82%E5%88%B0%E7%AC%ACn%E5%AD%97%E8%8A%82)
 			- [文本文件](#%E6%96%87%E6%9C%AC%E6%96%87%E4%BB%B6)
 		- [Go语言标准库提供的其他方便功能](#go%E8%AF%AD%E8%A8%80%E6%A0%87%E5%87%86%E5%BA%93%E6%8F%90%E4%BE%9B%E7%9A%84%E5%85%B6%E4%BB%96%E6%96%B9%E4%BE%BF%E5%8A%9F%E8%83%BD)
 	- [1.4 文件I/O进阶](#14-%E6%96%87%E4%BB%B6io%E8%BF%9B%E9%98%B6)
@@ -549,11 +550,14 @@ func main() {
 	nRead := 0
 	for {
 		n, err := f.Read(b)
+		if n == 0 {
+			break;
+		}
 		check(err)
-		// 记录中国读了多少字节
+		// 记录总共读了多少字节
 		nRead += n
 		// 如果还没足够N，处理掉当前读到的数据，并继续
-		if nRead <= N {
+		if nRead < N {
 			// 处理当前的一段
 			fmt.Printf("read %d bytes: [%s]\n", n, string(b))
 		} else { // 足够N了，处理掉最后读到的一小段数据（直到N为止），然后跳出
@@ -566,15 +570,121 @@ func main() {
 }
 ```
 
+这里我们假设的N是100，缓冲数组`b`大小设为10，这样，`for`循环里一共读取了10次，最后一次时判断`nRead < N`失效，退出循环。
+
+#### 读取第M字节到第N字节
+
 对于需求二，读取中间部分的数据，假设我们需要读取文件从第M字节到第N字节的数据，则可以使用`Seek()`函数跳转到文件第M个字节，再连续读到第N个字节即可。这里示例是N-M很大，需要多次读取的情况：
 
 ```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+)
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func main() {
+	f, err := os.Open("D:/sonnet18.txt")
+	check(err)
+
+	N := 100
+	M := 200
+
+	// 跳转到第N个字节
+	f.Seek(int64(N), io.SeekStart)
+
+	// L: 需要读取的长度
+	L := M - N
+
+	b := make([]byte, 10)
+	nRead := 0
+	for {
+		n, err := f.Read(b)
+		if n == 0 {
+			break
+		}
+		check(err)
+		// 记录总共读了多少字节
+		nRead += n
+		// 如果还没足够N，处理掉当前读到的数据，并继续
+		if nRead < L {
+			// 处理当前的一段
+			fmt.Printf("read %d bytes: [%s]\n", n, string(b))
+		} else { // 足够N了，处理掉最后读到的一小段数据（直到N为止），然后跳出
+			// 处理最后读到的一小段
+			nTail := n - (nRead - L)
+			fmt.Printf("read %d bytes: [%s]\n", nTail, string(b[:nTail]))
+			break
+		}
+	}
+}
 ```
 
-对于需求三，我们则可以先使用`Seek()`从文件末尾往前跳跃N个字节，再从那里一直读到文件末尾即可：
+这里我们从第100个字节开始读取，读到第200个字节，即`N:=100;M:=200`，首先使用`f.Seek()`跳转到第N个字节，然后和上个例子一样，再读取`L:=M-N`个字节即可
+
+
+对于需求三，我们则可以先使用`Seek()`从文件末尾往前跳跃N个字节，再从那里一直读到文件末尾：
 
 ```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+)
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func main() {
+	f, err := os.Open("D:/sonnet18.txt")
+	check(err)
+
+	N := 100
+
+	// 跳转到倒数第N个字节
+	f.Seek(-int64(N), io.SeekEnd)
+
+	b := make([]byte, 10)
+	nRead := 0
+	for {
+		n, err := f.Read(b)
+		if n == 0 {
+			break
+		}
+		check(err)
+		// 记录总共读了多少字节
+		nRead += n
+		// 如果还没足够N，处理掉当前读到的数据，并继续
+		if nRead < N {
+			// 处理当前的一段
+			fmt.Printf("read %d bytes: [%s]\n", n, string(b))
+		} else { // 足够N了，处理掉最后读到的一小段数据（直到N为止），然后跳出
+			// 处理最后读到的一小段
+			nTail := n - (nRead - N)
+			fmt.Printf("read %d bytes: [%s]\n", nTail, string(b[:nTail]))
+			break
+		}
+	}
+}
+
 ```
+
+我们这里使用了`f.Seek(-int64(N), io.SeekEnd)`来从文件末尾`io.SeekEnd`，跳转`-N`个字节，即倒数第N个字节，然后一路读到末尾。
+
+至此读取文件的一部分，三种场景我们都覆盖到了。
 
 除了`Seek()`，Go还提供了`Reset()`和`Peek()`等文件I/O操作，这样组合起来可以解决更复杂的场景。如：TODO
 
@@ -672,12 +782,58 @@ func main() {
 
 ```
 
-而读取最后N行的内容则更复杂一点：再读完整个文件之前，无法知道总共有多少行，因此也无法知道应当从第几行算起。如果不考虑效率，可以利用一个大小为N的FIFO对列，把独到的每一行都加入对列。当超过N行时，把最早的内容从队列中取出来抛弃掉。这样读完整个文件时，对列里剩下的N行内容实际上就是文件的最后N行。示例如下：
+而读取最后N行的内容则更复杂一点：在读完整个文件之前，无法知道总共有多少行，因此也无法知道应当从第几行算起。如果不考虑效率，可以利用一个大小为N的FIFO对列，把读到的每一行都加入对列。当超过N行时，把最早的内容从队列中取出来抛弃掉。这样读完整个文件时，对列里剩下的N行内容实际上就是文件的最后N行。示例如下：
 
 ```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+)
+
+func main() {
+	// 读取最后5行
+	N := 5
+
+	// 先建立一个大小为0的对列
+	queue := make([]string, N)
+
+	file, err := os.Open("D:/sonnet18.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	// 逐行扫描全文
+	for scanner.Scan() {
+		// 将当前行加入到对列
+		queue = append(queue, scanner.Text())
+		// 如果对列长度超过N，则踢出最早进入对列的一行
+		if len(queue) > N {
+			queue = queue[1:]
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	// 全文扫描结束，从queue中读取最后N行进行处理
+	for _, line := range queue {
+		fmt.Println(line)
+	}
+}
+
 ```
 
-但这种简单的办法显然效率不高，我们应当模仿UNIX系统的`tail`命令来实现这个功能，即先利用`Seek()`跳转到文件结尾，然后用缓冲区从结尾往前读取，每次读取一个缓冲区，并分析其内容，如果发现换行符，则得到了一行文本。这样反复往前读，直到读到了N行文本为止。这里代码需要处理缓冲区到文本行的转换，实际上是要自己实现`bufio`的内部细节内容。代码如下：
+但这种简单的办法显然效率不高。一方面，全文都要读一遍，如果遇到大文件，则前面的读取扫描过程都浪费了。另一方面，这里示例使用的是简单的`slice`模拟的对列。由于Go标准库里没有对列数据结构，老版的`container/vector`也已经删除，所以为了简单期间，这里使用模拟的对列。但这个方法实际效率很低，不管是内存的使用还是GC的消耗都很高。所以会更进一步降低性能。
+
+在实际应用中，要高效地读取最后N行，我们应当模仿UNIX系统的`tail`命令来实现这个功能，即先利用`Seek()`跳转到文件结尾，然后用缓冲区从结尾往前读取，每次读取一个缓冲区，并分析其内容，如果发现换行符，则得到了一行文本。这样反复往前读，直到读到了N行文本为止。这里代码需要处理缓冲区到文本行的转换，实际上是要自己实现`bufio`的内部细节内容。代码如下：
 
 ```go
 // TODO: implement backward reading N lines with Seek() and a buffer
@@ -811,9 +967,8 @@ func main() {
 }
 ```
 
-这里只是内存中转换，要进行文件转换，下面我们展示如下的转换过程：
+这里只是内存中转换，下面是一个文件转码的示例，我们将guanju.utf8.txt转码为GBK编码，存入到guanju.gbk.txt中：
 
-开头，hello.GBK.txt文件里存放的是GBK编码的“你好，明天！”，我们读入该文件，用GBK解码成为标准编码UTF8的格式，写入到hello.UTF8.txt中。然后我们再读取hello.UTF8.txt，在内存中转换为GBK格式，再写入到 hello.GBK.new.txt中。
 
 ```go
 
