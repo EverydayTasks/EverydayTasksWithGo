@@ -19,20 +19,10 @@
 		- [文件编码与unicode](#%E6%96%87%E4%BB%B6%E7%BC%96%E7%A0%81%E4%B8%8Eunicode)
 		- [表格化数据格式：CSV](#%E8%A1%A8%E6%A0%BC%E5%8C%96%E6%95%B0%E6%8D%AE%E6%A0%BC%E5%BC%8Fcsv)
 		- [结构化数据文件格式：JSON](#%E7%BB%93%E6%9E%84%E5%8C%96%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8Fjson)
-		- [结构化二进制格式：Protobuf](#%E7%BB%93%E6%9E%84%E5%8C%96%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%A0%BC%E5%BC%8Fprotobuf)
+		- [结构化二进制格式：Protocol Buffers](#%E7%BB%93%E6%9E%84%E5%8C%96%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%A0%BC%E5%BC%8Fprotocol-buffers)
+		- [结构化二进制格式：FlatBuffers](#%E7%BB%93%E6%9E%84%E5%8C%96%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%A0%BC%E5%BC%8Fflatbuffers)
 		- [图像数据文件：Image](#%E5%9B%BE%E5%83%8F%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6image)
 		- [压缩文件读写。](#%E5%8E%8B%E7%BC%A9%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99)
-		- [内存映射](#%E5%86%85%E5%AD%98%E6%98%A0%E5%B0%84)
-	- [1.5 并发读写](#15-%E5%B9%B6%E5%8F%91%E8%AF%BB%E5%86%99)
-	- [1.6 其他文件操作](#16-%E5%85%B6%E4%BB%96%E6%96%87%E4%BB%B6%E6%93%8D%E4%BD%9C)
-		- [新建文件](#%E6%96%B0%E5%BB%BA%E6%96%87%E4%BB%B6)
-		- [删除文件](#%E5%88%A0%E9%99%A4%E6%96%87%E4%BB%B6)
-		- [重命名和移动](#%E9%87%8D%E5%91%BD%E5%90%8D%E5%92%8C%E7%A7%BB%E5%8A%A8)
-		- [复制文件](#%E5%A4%8D%E5%88%B6%E6%96%87%E4%BB%B6)
-		- [文件信息查询](#%E6%96%87%E4%BB%B6%E4%BF%A1%E6%81%AF%E6%9F%A5%E8%AF%A2)
-		- [搜索](#%E6%90%9C%E7%B4%A2)
-		- [同步](#%E5%90%8C%E6%AD%A5)
-		- [文件备份](#%E6%96%87%E4%BB%B6%E5%A4%87%E4%BB%BD)
 	- [1.7 文件I/O的应用](#17-%E6%96%87%E4%BB%B6io%E7%9A%84%E5%BA%94%E7%94%A8)
 		- [配置文件](#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6)
 	- [1.7 扩展话题：相关第三方库赏析](#17-%E6%89%A9%E5%B1%95%E8%AF%9D%E9%A2%98%E7%9B%B8%E5%85%B3%E7%AC%AC%E4%B8%89%E6%96%B9%E5%BA%93%E8%B5%8F%E6%9E%90)
@@ -1183,7 +1173,11 @@ func main() {
 
 最后，值得一提的是，标准库的`encoding/json`效率并不很高。第三方库[json-iterator](https://github.com/json-iterator/go)提供了与标准库100%兼容的功能，但是性能高很多。实际工作中，在对性能要求很高的场景，可以考虑使用这个库来替换标准库。
 
-### 结构化二进制格式：Protobuf
+### 结构化二进制格式：Protocol Buffers
+
+我们在上一章“数据”章节中已经介绍过Go语言如何处理protobuf数据，不过主要集中在内存中读写的场景。本节介绍一下读取protobuf文件时需要注意的事项。
+
+### 结构化二进制格式：FlatBuffers
 
 ### 图像数据文件：Image
 
@@ -1198,10 +1192,48 @@ Go语言标准库`compress`模块提供了几种常见格式的压缩和解压�
 - zlib
 
 这里我们概要介绍一下最常用的gzip格式，其他格式用法基本都一样。
+读取gzip格式压缩文件，假设解压缩后是文本文件，我们需要按行读取：
 
-读取gzip格式压缩文件：
+```go
+package main
 
-写入gzip压缩文件：
+import (
+	"bufio"
+	"compress/gzip"
+	"fmt"
+	"os"
+)
+
+func main() {
+	// 打开压缩问价
+	f, err := os.Open("D:/sonnet18.txt.gz")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	// 打开gzip的Reader，套在文件Reader之上
+	gr, err := gzip.NewReader(f)
+	if err != nil {
+		panic(err)
+	}
+	defer gr.Close()
+
+	// 新建一个Scanner，读取gzip.Reader
+	scanner := bufio.NewScanner(gr)
+	for scanner.Scan() {
+		fmt.Println(scanner.Text())
+	}
+}
+```
+
+这里可以看到，添加gzip解压功能非常直观。 由于Go语言`io.Reader`接口的通用性，和普通格式文件相比，读取gzip格式的文件，只需在打开文件后，解析文本前，多套一层`gzip.NewReader`就可以了。
+
+
+而写入gzip压缩文件也同样只需要多套一层`gzip.NewWriter`：
+
+```go
+```
 
 文件头信息
 
@@ -1242,67 +1274,6 @@ func main() {
 ```
 
 同样的方法，也可以用于其他格式，如压缩的JSON等。
-
-
-### 内存映射
-
-参考第三方开源工程[mmap-go](https://github.com/edsrzf/mmap-go)。
-
-TODO: 描述mmap-go对内存映射的基本实现
-
-
-## 1.5 并发读写
-
-因为Go语言的主要设计要素就是并发，在此我们着重探讨一下并发读写的课题。在这个过程中，可以看到goroutine、channel等Go语言的并发工具，如何更简洁高效地实现并发读写的功能。
-
-并发读
-
-并发写
-
-多读一写
-
-一读多写
-
-多读多写
-
-## 1.6 其他文件操作
-
-除了读写，我们还还可以对文件进行新建、删除、移动（重命名）、复制、搜索等操作。另外，除了文件，还有文件夹需要操作，因为操作文件时往往涉及到文件夹，因此一起介绍了。
-
-本节介绍这些操作的基本用法，以及几个进阶的应用，如文件树扫描、文件夹同步（类Rsync）、文件备份等。
-
-### 新建文件
-
-新建空白文件
-
-新建和写入操作合起来
-
-新建文件夹
-
-新建文件树
-
-### 删除文件
-
-删除文件
-
-批量删除
-
-删除文件夹
-
-删除文件树
-
-### 重命名和移动
-
-### 复制文件
-
-### 文件信息查询
-
-### 搜索
-
-### 同步
-
-### 文件备份
-
 
 ## 1.7 文件I/O的应用
 

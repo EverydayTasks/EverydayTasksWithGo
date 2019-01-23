@@ -18,7 +18,7 @@ A mid level Golang book for everyday programming tasks.
 - [ 0%] [并发](concurrency.cn.md) - Go语言最强大的工具
 - [ 0%] [数据](data.cn.md) - 大宝天天见！
 - [ 0%] [时间](time.cn.md)
-- [**60%**] [文件](file.cn.md) - 我要存下去
+- [**90%**] [文件](file.cn.md) - 我要存下去
 - [ 0%] [数据结构](datastructure.cn.md)
 - [ 0%] [算法](algorithms.cn.md)
 - [ 0%] [网络](network.cn.md) - Go最多的应用场景
