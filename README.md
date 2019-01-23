@@ -12,13 +12,13 @@ A mid level Golang book for everyday programming tasks.
 
 # 目录 | Contents
 
-整体进度：[1%]
+整体进度：[2%]
 
 - [ 0%] [引言](chapter1.md) - 概述本书的定位和内容
 - [ 0%] [并发](concurrency.cn.md) - Go语言最强大的工具
 - [ 0%] [数据](data.cn.md) - 大宝天天见！
 - [ 0%] [时间](time.cn.md)
-- [**90%**] [文件](file.cn.md) - 我要存下去
+- [**80%**] [文件](file.cn.md) - 我要存下去
 - [ 0%] [数据结构](datastructure.cn.md)
 - [ 0%] [算法](algorithms.cn.md)
 - [ 0%] [网络](network.cn.md) - Go最多的应用场景
