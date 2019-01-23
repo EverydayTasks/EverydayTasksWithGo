@@ -18,7 +18,7 @@
 	- [1.4 文件I/O进阶](#14-%E6%96%87%E4%BB%B6io%E8%BF%9B%E9%98%B6)
 		- [文件编码与unicode](#%E6%96%87%E4%BB%B6%E7%BC%96%E7%A0%81%E4%B8%8Eunicode)
 		- [表格化数据格式：CSV](#%E8%A1%A8%E6%A0%BC%E5%8C%96%E6%95%B0%E6%8D%AE%E6%A0%BC%E5%BC%8Fcsv)
-		- [结构化数据文件格式：JSON和XML](#%E7%BB%93%E6%9E%84%E5%8C%96%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8Fjson%E5%92%8Cxml)
+		- [结构化数据文件格式：JSON](#%E7%BB%93%E6%9E%84%E5%8C%96%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8Fjson)
 		- [结构化二进制格式：Protobuf](#%E7%BB%93%E6%9E%84%E5%8C%96%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%A0%BC%E5%BC%8Fprotobuf)
 		- [图像数据文件：Image](#%E5%9B%BE%E5%83%8F%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6image)
 		- [压缩文件读写。](#%E5%8E%8B%E7%BC%A9%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99)
@@ -971,14 +971,217 @@ func main() {
 
 
 ```go
-
+// TODO
 ```
 
 ### 表格化数据格式：CSV
 
 Go标准库提供了"encoding/csv"模组，参考https://golang.org/pkg/encoding/csv/
 
-### 结构化数据文件格式：JSON和XML
+### 结构化数据文件格式：JSON
+
+JSON和XML这两种数据格式的处理，我们在上一章中已经有详细描述。作为通用数据交换格式，他们的功能很强大，表达力极强，因此也经常用做配置文件、数据文件等。这类文件实质上是文本文件，但是一般来说不按行处理，通常有两种处理方式：
+
+* DOM: Document Object Model
+* SAX: Simple API for XML
+
+DOM是指把整个文档看做一个结构化的对象（一般是一个树状结构），读取文件的过程中逐步构建这个对象，添加其子节点。因此整个文件读完之后，内存中的对象会包含文件的全部信息。它的优点是内存中的DOM和文件中数据的结构一一对应，使用简单；并且DOM建立好之后，可以多次访问DOM的任意子节点。但缺点也很明显，内存消耗巨大，如果数据文件本身很大，则不能使用DOM模式。
+
+SAX原先是为了XML而设计的一个处理方式，JSON由于实际上结构和XML类似，所以也可以采用这种模式来读取分析。SAX把整个文件看做一个信息流，在读取文件的过程中，遇到每一个节点，会回调相应的节点事件，处理代码事先注册好回调的逻辑，即可以指定遇到哪一种节点的时候做什么事情。SAX的优点是速度快（只遍历一遍文档，在关键节点获取信息进行操作，而不需要构造DOM），内存消耗少（只存储当前节点的环境信息），但是缺点是一遍过，而且回调事件零散，失去了数据的结构信息，需要在处理代码里自己想办法维护。
+
+Go语言标准库`json`包和`xml`包都提供了`Decoder`和`Encoder`的实现，我们先举一个简单的例子：
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"io"
+	"os"
+)
+
+type book struct {
+	ID     int64
+	Title  string
+	Author string
+	Intro  string
+}
+
+func main() {
+	f, err := os.Open("D:/books.json")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	dec := json.NewDecoder(f)
+	enc := json.NewEncoder(os.Stdout)
+	var books []book
+	if err := dec.Decode(&books); err != nil {
+		if err == io.EOF {
+			return
+		}
+		panic(err)
+	}
+	for _, v := range books {
+		if err := enc.Encode(&v); err != nil {
+			panic(err)
+		}
+	}
+}
+
+```
+
+这里使用的问价`books.json`格式如下：
+
+```json
+[
+	{
+		"id":1,
+		"title":"On Writing Well",
+		"author":"William Zinsser",
+		"intro":"A book on how to become a good professional writer."
+	},
+	{
+		"id":2,
+		"title":"Elements of Style",
+		"author":"William Strunk Jr./E.B. White",
+		"intro":"A definitive guide to writing styles"
+	}
+]
+```
+
+XML的解析和JSON基本一致，这里就不赘述了。
+
+可以看出，Go语言标准库的json解析包，虽然支持文件流，但实际上还是DOM模式，读完文件之后，全部的信息都存放到`books`对象中去了。因此如果`books.json`非常大，内存消耗会很严重。
+
+那么我们如何实现SAX模式的读取呢？
+
+`encoding/json`还提供了一套`streaming API`，即流模式API，可以让我们手动解析一个个Token，并在当前位置进行解析。如果使用这个API来解析`books.json`，每遇到一个`book`对象处理一次，可以这么做：
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
+type book struct {
+	ID     int64
+	Title  string
+	Author string
+	Intro  string
+}
+
+func main() {
+	f, err := os.Open("D:/books.json")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	d := json.NewDecoder(f)
+
+	// 跳过"{"
+	_, err = d.Token()
+	if err != nil {
+		panic(err)
+	}
+
+	// 一个个解析book
+	var b book
+	for d.More() {
+		err := d.Decode(&b)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(b.Title)
+	}
+
+	// 跳过"}""
+	_, err = d.Token()
+	if err != nil {
+		panic(err)
+	}
+
+}
+
+```
+
+这样做的好处是内存中不需要存储全部的`books`了，因此如果`books.json`内容数量很多时，对内存没有多余的消耗。这种模式在进行遍历统计时比DOM模式好用。但是这样仍然不如SAX模式方便，因为我们不但必须明确知道JSON的结构，并手动解析到需要到达的目标，并且，如果JSON文件数据结构层次比较多，就很难写出可以维护的代码了。这时候我们更需要SAX的事件驱动模式。
+
+但经过作者的初步调查，JSON中并没有实现SAX模式，只能用流模式API的`Token()`来模拟。 假设我们的需求是遍历`books.json`统计每位作者有多少书，那么在SAX回调中，我们只要关注`author`字段的内容即可：
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+)
+
+type book struct {
+	ID     int64
+	Title  string
+	Author string
+	Intro  string
+}
+
+func main() {
+	f, err := os.Open("D:/books.json")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	d := json.NewDecoder(f)
+	level := 0
+	var prev string
+	for {
+		t, tokenErr := d.Token()
+		if tokenErr != nil {
+			if tokenErr == io.EOF {
+				break
+			}
+		}
+
+		switch t.(type) {
+		case json.Delim:
+			ts := t.(json.Delim).String()
+			// 判断层级
+			if ts == "{" || ts == "[" {
+				level++
+			}
+			if ts == "}" || ts == "]" {
+				level--
+			}
+		default:
+			// 我们的需求：获取级别2的"author"对应的值
+			if prev == "author" && level == 2 {
+				fmt.Println(t)
+			}
+		}
+
+		// 记录键，注意这里凡是字符串类型都记录了，所以必须配合级别来避免错误
+		switch t.(type) {
+		case string:
+			prev = t.(string)
+		}
+	}
+}
+```
+
+可以看到，这里只是简单的模拟了一个搜索的过程，当我们读到某个字段，它的层级是`level==2`，且它前一个`Token`是`"author"`时，进行处理。
+
+这样写显然容易出错，而且很冗长，但是效率确实是最高的（因为避免了绝大多数的`Decode()`过程。以后在正式章节中我会重写一个streamparser的API，来封装这个功能，实现类似上一章中介绍过的[jsonparser](https://github.com/buger/jsonparser)的效果。
+
+第三方库[jstream](https://github.com/bcicen/jstream)，提供了另外一种形式的流模式读取：分层读取。比如我们的`books.json`，是分为两层，第一层是`[]`数组，第二层则是各个`book`对象。如果`book`对象的某个属性值仍然是数组或对象，那么那个值之内的数据就是第三层，依次类推。这在某些统计需求时会比较好用，可以按需使用。
+
+
+最后，值得一提的是，标准库的`encoding/json`效率并不很高。第三方库[json-iterator](https://github.com/json-iterator/go)提供了与标准库100%兼容的功能，但是性能高很多。实际工作中，在对性能要求很高的场景，可以考虑使用这个库来替换标准库。
 
 ### 结构化二进制格式：Protobuf
 
