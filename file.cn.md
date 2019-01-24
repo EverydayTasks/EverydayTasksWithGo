@@ -18,7 +18,6 @@
 		- [文件编码与unicode](#%E6%96%87%E4%BB%B6%E7%BC%96%E7%A0%81%E4%B8%8Eunicode)
 		- [表格化数据格式：CSV](#%E8%A1%A8%E6%A0%BC%E5%8C%96%E6%95%B0%E6%8D%AE%E6%A0%BC%E5%BC%8Fcsv)
 		- [结构化数据文件格式：JSON](#%E7%BB%93%E6%9E%84%E5%8C%96%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8Fjson)
-		- [结构化二进制格式：Protocol Buffers](#%E7%BB%93%E6%9E%84%E5%8C%96%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%A0%BC%E5%BC%8Fprotocol-buffers)
 		- [图像数据文件：Image](#%E5%9B%BE%E5%83%8F%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6image)
 		- [压缩文件读写](#%E5%8E%8B%E7%BC%A9%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99)
 	- [1.7 文件I/O的应用](#17-%E6%96%87%E4%BB%B6io%E7%9A%84%E5%BA%94%E7%94%A8)
@@ -1294,10 +1293,6 @@ func main() {
 
 最后，值得一提的是，标准库的`encoding/json`效率并不很高。第三方库[json-iterator](https://github.com/json-iterator/go)提供了与标准库100%兼容的功能，但是性能高很多。实际工作中，在对性能要求很高的场景，可以考虑使用这个库来替换标准库。
 
-### 结构化二进制格式：Protocol Buffers
-
-我们在上一章“数据”章节中已经介绍过Go语言如何处理protobuf数据，不过主要集中在内存中读写的场景。本节介绍一下读取protobuf文件时需要注意的事项。
-
 ### 图像数据文件：Image
 
 关于图像的处理，我们会在后面图像处理的章节专门详细描述。这里先举一个写入和读取图片文件的例子，作为文件操作的示例。
@@ -1305,8 +1300,53 @@ func main() {
 先看看写入png文件：
 
 ```go
+package main
 
+import (
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
+	"os"
+)
+
+func main() {
+	// 画一个大小为400x400的正方形
+	size := 400
+	step := size / 10
+	imgRect := image.Rect(0, 0, size, size)
+	img := image.NewNRGBA(imgRect)
+
+	// 画出边框
+	draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.ZP, draw.Src)
+
+	// 填充黑色
+	for x := 0; x < size; x += step {
+		// 奇数块涂上阿根廷国旗的蓝色
+		colorIceberg := color.NRGBA{117, 170, 219, 100}
+		fill := &image.Uniform{colorIceberg}
+		// 偶数块涂上白色
+		if (x/step)%2 == 0 {
+			fill = &image.Uniform{color.White}
+		}
+		draw.Draw(img, image.Rect(x, 0, x+step, size), fill, image.ZP, draw.Src)
+	}
+	// 打开输出文件
+	outputFile, err := os.Create("D:/rect.png")
+	if err != nil {
+		panic(err)
+	}
+	defer outputFile.Close()
+
+	// 调用png.Encode()来输出图片。参数是文件名和上面生成的Image对象
+	png.Encode(outputFile, img)
+
+}
 ```
+
+这个程序画出一个正方形，里面涂上类似阿根廷足球队服的蓝白条纹。结果如下图：
+
+![rect.png](rect.png)
 
 ### 压缩文件读写
 

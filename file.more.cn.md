@@ -78,5 +78,7 @@ TODO: 描述mmap-go对内存映射的基本实现
 
 ### inotify
 
+### 结构化二进制格式：Protocol Buffers
 
+我们在上一章“数据”章节中已经介绍过Go语言如何处理protobuf数据，不过主要集中在内存中读写的场景。本节介绍一下读取protobuf文件时需要注意的事项。
 ### 结构化二进制格式：FlatBuffers
