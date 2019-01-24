@@ -19,7 +19,6 @@
 		- [表格化数据格式：CSV](#%E8%A1%A8%E6%A0%BC%E5%8C%96%E6%95%B0%E6%8D%AE%E6%A0%BC%E5%BC%8Fcsv)
 		- [结构化数据文件格式：JSON](#%E7%BB%93%E6%9E%84%E5%8C%96%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8Fjson)
 		- [结构化二进制格式：Protocol Buffers](#%E7%BB%93%E6%9E%84%E5%8C%96%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%A0%BC%E5%BC%8Fprotocol-buffers)
-		- [结构化二进制格式：FlatBuffers](#%E7%BB%93%E6%9E%84%E5%8C%96%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%A0%BC%E5%BC%8Fflatbuffers)
 		- [图像数据文件：Image](#%E5%9B%BE%E5%83%8F%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6image)
 		- [压缩文件读写](#%E5%8E%8B%E7%BC%A9%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99)
 	- [1.7 文件I/O的应用](#17-%E6%96%87%E4%BB%B6io%E7%9A%84%E5%BA%94%E7%94%A8)
@@ -1010,6 +1009,88 @@ func main() {
 
 Go标准库提供了"encoding/csv"模组，参考https://golang.org/pkg/encoding/csv/
 
+最简单的CSV读取，只需要在普通文本读取之上，套上一个`csv.Reader`就可以了：
+
+```go
+package main
+
+import (
+	"bufio"
+	"encoding/csv"
+	"fmt"
+	"io"
+	"os"
+)
+
+func main() {
+	// 打开CSV文件
+	f, err := os.Open("D:/test.csv")
+	if err != nil {
+		panic(err)
+	}
+
+	// 建立csv.Reader
+	r := csv.NewReader(bufio.NewReader(f))
+	for {
+		record, err := r.Read()
+		// 遇到EOF跳出
+		if err == io.EOF {
+			break
+		}
+		// 打印record，它是一个[]string数组
+		fmt.Println(record)
+		// 遍历打印其中每一个元素
+		for value := range record {
+			fmt.Printf("  %v\n", record[value])
+		}
+	}
+}
+```
+
+这里每行读出来的`record`是一个字符串数组`[]string`，其中每一项是一列值。这样虽然简单，效率也高，但是遇到稍微复杂一点的情形，就会感觉不好用。
+
+因为每一行是一个数组，只能通过下标来获取对应列的值，如`record[1]`，如果遇到CSV文件中某一列值有缺失，会导致直接错误。
+
+而且使用下标的话，未来如果CSV格式发生了改变，现有的下标很可能需要跟着改变，比如插入一列的情形。这样的话，很不利于代码维护。
+
+因此我们需要能把每一行数据`record`映射成一个`struct`的功能。我找到两个第三方库提供了如下功能：
+
+- [csvutil](https://github.com/jszwec/csvutil)
+- [go-csv-tag](https://github.com/artonge/go-csv-tag)
+
+他们提供的核心服务都是利用`tag`来标记`struct`数据与CSV列之间的对应关系，然后就可以轻松地实现读写。
+
+这两个库中，`csvutil`功能较多，结构也复杂一些。`go-csv-tag`则只用了一两百行代码，方便我们去理解。因此我这里举例用的是`go-csv-tag`，但是实际使用中，大家可以根据需求选用`csvutil`库.
+
+假设CSV数据如下：
+
+```csv
+name, ID, number
+name1, 1, 1.2
+name2, 2, 2.3
+name3, 3, 3.4
+```
+
+则映射和读取的代码如下：
+
+```go
+type Demo struct {                         // 带标记的struct，每个字段指定对应列
+	Name string  `csv:"name"`
+	ID   int     `csv:"ID"`
+	Num  float64 `csv:"number"`
+}
+
+tab := []Demo{}                             // 新建内存中的对象数组
+err  := csvtag.Load(csvtag.Config{          // 读取CSV文件
+  Path: "file.csv",                         // 文件名
+  Dest: &tab,                               // 目标对象数组
+  Separator: ',',                           // 可选：如果分隔符不是','可以用这个设置
+  Header: []string{"name", "ID", "number"}, // 可选：如果有文件头，则在这里指定
+})
+```
+
+可以看到，通过库的封装，读取csv文件，并映射成`struct`对象，变成了很简单的事情。
+
 ### 结构化数据文件格式：JSON
 
 JSON和XML这两种数据格式的处理，我们在上一章中已经有详细描述。作为通用数据交换格式，他们的功能很强大，表达力极强，因此也经常用做配置文件、数据文件等。这类文件实质上是文本文件，但是一般来说不按行处理，通常有两种处理方式：
@@ -1085,8 +1166,6 @@ func main() {
 XML的解析和JSON基本一致，这里就不赘述了。
 
 可以看出，Go语言标准库的json解析包，虽然支持文件流，但实际上还是DOM模式，读完文件之后，全部的信息都存放到`books`对象中去了。因此如果`books.json`非常大，内存消耗会很严重。
-
-那么我们如何实现SAX模式的读取呢？
 
 `encoding/json`还提供了一套`streaming API`，即流模式API，可以让我们手动解析一个个Token，并在当前位置进行解析。如果使用这个API来解析`books.json`，每遇到一个`book`对象处理一次，可以这么做：
 
@@ -1218,8 +1297,6 @@ func main() {
 ### 结构化二进制格式：Protocol Buffers
 
 我们在上一章“数据”章节中已经介绍过Go语言如何处理protobuf数据，不过主要集中在内存中读写的场景。本节介绍一下读取protobuf文件时需要注意的事项。
-
-### 结构化二进制格式：FlatBuffers
 
 ### 图像数据文件：Image
 
