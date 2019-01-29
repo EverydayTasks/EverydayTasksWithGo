@@ -24,7 +24,7 @@ A mid level Golang book for everyday programming tasks.
 - [ 0%] [数据结构](datastructure.cn.md) - 从[]数组到红黑树
 - [ 0%] [常用算法](algorithms.cn.md) - **常用**算法
 - [ 0%] [网络](network.cn.md) - Go最多的应用场景
-- [ 0%] [WEB](network.cn.md) - Go的新土地
+- [ 0%] [WEB](web.cn.md) - Go的新土地
 - [ 0%] [数据库](database.cn.md) - 互联网的脊梁，以及，我选PostgreSQL
 - [ 0%] [安全](security.cn.md) - Crypto, SQL Injection and more
 - [ 0%] [通知](notification.cn.md) - Email, SMS and others
