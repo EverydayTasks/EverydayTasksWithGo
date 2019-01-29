@@ -14,7 +14,7 @@ A mid level Golang book for everyday programming tasks.
 
 整体进度：[3%]
 
-- [**50%**] [引言](intro.cn.md) - 概述本书的定位和内容
+- [**90%**] [引言](intro.cn.md) - 概述本书的定位和内容
 - [ 0%] [并发](concurrency.cn.md) - Go语言最强大的工具
 - [ 0%] [数据](data.cn.md) - struct, csv, json, xml, protobuf, flatbuffer等
 - [**80%**] [文件](file.cn.md) - 关于文件操作的大百科全书
