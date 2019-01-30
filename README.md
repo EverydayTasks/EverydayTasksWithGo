@@ -15,7 +15,7 @@ A mid level Golang book for everyday programming tasks.
 整体进度：[3%]
 
 - [**90%**] [引言](intro.cn.md) - 概述本书的定位和内容
-- [ 0%] [并发](concurrency.cn.md) - Go语言最强大的工具
+- [ 1%] [并发](concurrency.cn.md) - Go语言最强大的工具
 - [ 0%] [数据](data.cn.md) - struct, csv, json, xml, protobuf, flatbuffer等
 - [**80%**] [文件](file.cn.md) - 关于文件操作的大百科全书
 - [ 0%] [日志](log.cn.md) - beyond stdout
@@ -24,7 +24,7 @@ A mid level Golang book for everyday programming tasks.
 - [ 0%] [数据结构](datastructure.cn.md) - 从[]数组到红黑树
 - [ 0%] [常用算法](algorithms.cn.md) - **常用**算法
 - [ 0%] [网络](network.cn.md) - Go最多的应用场景
-- [ 0%] [WEB](web.cn.md) - Go的新土地
+- [ 1%] [WEB](web.cn.md) - Go的新土地
 - [ 0%] [数据库](database.cn.md) - 互联网的脊梁，以及，我选PostgreSQL
 - [ 0%] [安全](security.cn.md) - Crypto, SQL Injection and more
 - [ 0%] [通知](notification.cn.md) - Email, SMS and others
