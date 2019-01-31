@@ -38,7 +38,19 @@
 			- [Task N：读取gzip文件](#task-n读取gzip文件)
 			- [Task N：写入gzip文件](#task-n写入gzip文件)
 		- [配置文件](#配置文件)
-	- [1.7 文件I/O的应用实例](#17-文件io的应用实例)
+	- [1.5 其他文件操作](#15-其他文件操作)
+		- [Task N：新建文件](#task-n新建文件)
+			- [新建文件](#新建文件)
+			- [新建文件夹](#新建文件夹)
+			- [综合起来](#综合起来)
+		- [Task N：删除文件](#task-n删除文件)
+		- [Task N：重命名和移动](#task-n重命名和移动)
+		- [Task N：复制文件](#task-n复制文件)
+		- [Task N：文件信息查询](#task-n文件信息查询)
+		- [Task N：搜索](#task-n搜索)
+		- [Task N：同步](#task-n同步)
+		- [Task N：文件备份](#task-n文件备份)
+	- [1.6 文件I/O的应用实例](#16-文件io的应用实例)
 		- [Task N：古腾堡书籍的预处理](#task-n古腾堡书籍的预处理)
 			- [第1步，下载书籍](#第1步下载书籍)
 			- [第2步，观察书籍内容](#第2步观察书籍内容)
@@ -1655,11 +1667,158 @@ Viper: <https://github.com/spf13/viper>。最强大的配置框架。支持多�
 
 我们会在最后的“第三方库赏析”里，专门对Viper库做一下分析，寻找到其中处理文件的代码逻辑，择其优秀者赏析之。
 
-## 1.7 文件I/O的应用实例
+## 1.5 其他文件操作
 
-这一节我们看几个文件读写的应用实例。
+除了读写，我们还还可以对文件进行新建、删除、移动（重命名）、复制、搜索等操作。而且文件还可以组成文件夹。因为操作文件时往往涉及到文件夹，因此一起介绍了。
 
-第一个实例自然是NeoReads里面的。
+本节介绍这些操作的基本用法，以及几个进阶的应用，如文件树扫描、文件夹同步（类Rsync）、文件备份等。
+
+### Task N：新建文件
+
+#### 新建文件
+
+我们先看看新建最简单的文件。这个操作相当于UNIX系统中的`touch`命令：
+
+```go
+package main
+
+import "os"
+
+func main() {
+	file, err := os.Create("D:/etgo/new_file.txt")
+	if err != nil {
+		panic(err)
+	}
+	file.Close()
+}
+```
+参见示例代码：`/chapter_file/file_manipulation/create_file/create_file.go`
+
+注意，这里必须保证`etgo/`这个文件夹已经事先建立好了，否则会报错。等会儿讨论过文件夹的操作之后我们再详细处理这个情况。
+
+我们可以查看`os.Create()`函数的代码，发现里面就是直接调用了`os.Open()`：
+
+```go
+func Create(name string) (*File, error) {
+	return OpenFile(name, O_RDWR|O_CREATE|O_TRUNC, 0666)
+}
+```
+因此，`os.Create()`只是一个方便函数而已。
+
+文件建立好以后，就可以直接对它进行写入操作了。具体做法参见本章开头的文件写入章节。
+
+#### 新建文件夹
+
+如果想新建文件夹，可以调用`os.MkDir()`
+
+```go
+package main
+
+import (
+	"os"
+)
+
+func main() {
+	if err := os.Mkdir("D:/tmp", 0644); err != nil {
+		panic(err)
+	}
+}
+```
+
+如果文件夹已经存在，则会报错：
+
+```
+panic: mkdir D:/tmp: Cannot create a file when that file already exists.
+```
+
+如果你想要新建的文件夹是好几层嵌套的，希望一个函数把整个路径上每个文件夹都建立起来，可以使用`os.MkdirAll()`：
+
+```go
+package main
+
+import (
+	"os"
+)
+
+func main() {
+	if err := os.MkdirAll("D:/tmp/sub", 0644); err != nil {
+		panic(err)
+	}
+}
+```
+
+这里，如果文件夹已经存在，就不会报错了。因为它的功能时尝试路径中每一个文件夹是否存在，不存在就建立，存在则跳过。这个函数也会遇到错误，比如路径中的文件夹已经存在，但是并不是文件夹，而是不同文件；或者文件夹读写权限有问题。
+
+比如，如果sub是一个文件，则会报如下错误：
+
+```
+panic: mkdir D:/tmp/sub: The system cannot find the path specified.
+```
+
+#### 综合起来
+
+将上述两个功能综合起来，我们可以设计一个新建文件的函数，它会自动检查其路径上目录是否存在，并帮忙建立好。
+
+```go
+package main
+
+import (
+	"os"
+	"path/filepath"
+)
+
+func main() {
+	path := "D:/etgo1/new_file.txt"
+	createWithDir(path)
+}
+
+func createWithDir(path string) {
+	dir := filepath.Dir(path)
+	if fi, err := os.Stat(dir); err == nil {
+		// 文件夹路径存在，但该路径不是文件夹
+		if !fi.IsDir() {
+			panic(dir + " is not a directory")
+		}
+	} else if os.IsNotExist(err) { // 文件夹不存在，尝试新建
+		os.MkdirAll(dir, 0644)
+	} else { // 其他情况，比如没有查看权限
+		panic(err)
+	}
+	// 文件夹已经建好，在其中新建文件
+	file, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	file.Close()
+}
+```
+
+
+### Task N：删除文件
+
+删除文件
+
+批量删除
+
+删除文件夹
+
+删除文件树
+
+### Task N：重命名和移动
+
+### Task N：复制文件
+
+### Task N：文件信息查询
+
+### Task N：搜索
+
+### Task N：同步
+
+### Task N：文件备份
+
+## 1.6 文件I/O的应用实例
+
+这一节我们看一个文件操作的综合应用实例。 这个实例的需求来自NeoReads应用。
 
 ### Task N：古腾堡书籍的预处理
 
