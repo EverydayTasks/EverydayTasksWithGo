@@ -39,6 +39,7 @@
 			- [Task N：写入gzip文件](#task-n写入gzip文件)
 		- [配置文件](#配置文件)
 	- [1.5 其他文件操作](#15-其他文件操作)
+		- [Task N：文件信息查询](#task-n文件信息查询)
 		- [Task N：新建文件](#task-n新建文件)
 			- [新建文件](#新建文件)
 			- [新建文件夹](#新建文件夹)
@@ -46,7 +47,6 @@
 		- [Task N：删除文件](#task-n删除文件)
 		- [Task N：重命名和移动](#task-n重命名和移动)
 		- [Task N：复制文件](#task-n复制文件)
-		- [Task N：文件信息查询](#task-n文件信息查询)
 		- [Task N：搜索](#task-n搜索)
 		- [Task N：同步](#task-n同步)
 		- [Task N：文件备份](#task-n文件备份)
@@ -1669,9 +1669,113 @@ Viper: <https://github.com/spf13/viper>。最强大的配置框架。支持多�
 
 ## 1.5 其他文件操作
 
-除了读写，我们还还可以对文件进行新建、删除、移动（重命名）、复制、搜索等操作。而且文件还可以组成文件夹。因为操作文件时往往涉及到文件夹，因此一起介绍了。
+除了读写，我们还还可以对文件进行查询、新建、删除、移动（重命名）、复制、搜索等操作。而且文件还可以组成文件夹。因为操作文件时往往涉及到文件夹，因此一起介绍了。
 
 本节介绍这些操作的基本用法，以及几个进阶的应用，如文件树扫描、文件夹同步（类Rsync）、文件备份等。
+
+### Task N：文件信息查询
+
+Go语言标准库里，文件信息的查询都集成在`os.Stat()`函数里，这和操作系统的设计是一致的，操作系统中，文件的所有信息都存在一个字段里。示例如下：
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+
+	stat, err := os.Stat("D:/sonnet18.txt")
+	if err != nil {
+		panic(err)
+	}
+
+	// 文件名
+	fmt.Printf("fileName: %v", stat.Name())
+	// 是否文件夹
+	fmt.Printf("isDir: %v\n", stat.Mode().IsDir())
+	// 上面同样功能的便捷函数
+	fmt.Printf("isDir: %v\n", stat.IsDir())
+	// 是否普通文件
+	fmt.Printf("isRegular: %v\n", stat.Mode().IsRegular())
+	// 文件权限
+	fmt.Printf("permission: %v\n", stat.Mode().Perm())
+	// 修改时间
+	fmt.Printf("lastModTime: %v\n", stat.ModTime())
+	// 文件大小
+	fmt.Printf("size: %v\n", stat.Size())
+
+}
+```
+
+但是由于操作系统不同时，其他几个信息，如文件创建时间(ctime)、上次访问时间（atime）等，在标准库的代码里没有直接提供。要想访问这几个时间，只能使用操作系统相关的代码了，比如我的测试机是Windows的，是这么用：
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"syscall"
+	"time"
+)
+
+func main() {
+
+	stat, err := os.Stat("D:/sonnet18.txt")
+	if err != nil {
+		panic(err)
+	}
+
+	wstat := stat.Sys().(*syscall.Win32FileAttributeData)
+	fmt.Printf("atime: %v\n", time.Unix(0, wstat.LastAccessTime.Nanoseconds()))
+	fmt.Printf("mtime: %v\n", time.Unix(0, wstat.LastWriteTime.Nanoseconds()))
+	fmt.Printf("ctime: %v\n", time.Unix(0, wstat.CreationTime.Nanoseconds()))
+}
+```
+
+不过一般不推荐直接这么用，否则你的代码就失去了跨平台的能力，并且用起来很麻烦。
+
+第三方库[times](https://github.com/djherbis/times)封装了一套接口，可以让你比较跨平台（这么说，是因为有的平台还是不完全支持这几个时间）的查询文件时间。具体对某个操作系统的支持，请移步去它的主页查看。这里是一个简单的例子：
+
+```go
+package main
+
+import (
+	"log"
+
+	times "gopkg.in/djherbis/times.v1"
+)
+
+func main() {
+	t, err := times.Stat("D:/sonnet18.txt")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	log.Println(t.AccessTime())
+	log.Println(t.ModTime())
+
+	if t.HasChangeTime() {
+		log.Println(t.ChangeTime())
+	}
+
+	if t.HasBirthTime() {
+		log.Println(t.BirthTime())
+	}
+}
+```
+
+显然，经过封装，这套代码比上面我使用的Windows操作系统的函数更可读，而且也通用。
+当然，要使用这个包，首先需要运行`go get gopkg.in/djherbis/times.v1`
+
+但和Python等其他语言提供的标准函数比起来，这样使用并不方便，所以我们也模拟Python实现几个方便函数。
+
+TODO: 文件信息修改
+
+了解了文件信息查询之后，我们看看怎么新建文件。
 
 ### Task N：新建文件
 
@@ -1793,7 +1897,6 @@ func createWithDir(path string) {
 }
 ```
 
-
 ### Task N：删除文件
 
 删除文件
@@ -1808,7 +1911,6 @@ func createWithDir(path string) {
 
 ### Task N：复制文件
 
-### Task N：文件信息查询
 
 ### Task N：搜索
 
