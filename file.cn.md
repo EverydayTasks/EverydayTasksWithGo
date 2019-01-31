@@ -44,7 +44,6 @@
 			- [第2步，观察书籍内容](#第2步观察书籍内容)
 			- [第3步，确定任务内容](#第3步确定任务内容)
 			- [第4步，扫描文件，过滤掉开头和结尾](#第4步扫描文件过滤掉开头和结尾)
-		- [Task N：CSV金融数据分析](#task-ncsv金融数据分析)
 	- [1.7 扩展话题：相关第三方库赏析](#17-扩展话题相关第三方库赏析)
 
 ## 1.1 话题介绍
@@ -1726,28 +1725,327 @@ End of the Project Gutenberg EBook of Pride and Prejudice, by Jane Austen
 首先我们要按行读取文件，然后找到开头和结尾的分隔行的位置。遇到开头分隔行的时候，就开始记录之后读到的每一行，写入到一个新文件里；遇到结尾分隔行时，直接退出扫描。代码如下：
 
 ```go
-// TODO
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+)
+
+// 判断正文开始的分隔行
+func isStartDelim(line string) bool {
+	return strings.HasPrefix(line, "*** START OF")
+}
+
+// 判断正文结尾的分隔行
+func isEndDelim(line string) bool {
+	return strings.HasPrefix(line, "*** END OF")
+}
+
+// 判断是否为章节标题行
+func isChapterTitle(line string) bool {
+	return strings.HasPrefix(line, "Chapter")
+}
+
+// 提取章节编号
+func extractChapterTitle(line string) string {
+	return strings.TrimSpace(line[len("Chapter"):])
+}
+
+// 用来收集一个章节的数据结构
+type chapter struct {
+	title    string
+	contents []string
+}
+
+// 打印章节的统计信息
+func statsChapter(ch *chapter) {
+	fmt.Printf("Chapter %v has %v lines\n", ch.title, len(ch.contents))
+	fmt.Println("Last line:", ch.contents[len(ch.contents)-1])
+}
+
+func main() {
+	// 打开文件
+	file, err := os.Open("E:/books/gutenberg/pride_and_prejudice.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// 使用scanner按行读取
+	scanner := bufio.NewScanner(file)
+	isContent := false
+	var curChapter chapter
+	for scanner.Scan() {
+		// 当前行
+		line := strings.TrimSpace(scanner.Text())
+
+		// 如果遇到正文开始分隔行，则进入正文
+		if isStartDelim(line) {
+			isContent = true
+			continue
+		}
+
+		// 如果遇到正文结束分隔行，则退出循环
+		if isEndDelim(line) {
+			break
+		}
+
+		// 如果遇到新章节的标题
+		if isChapterTitle(line) {
+			// 统计上一章节
+			statsChapter(&curChapter)
+			// 创建新章节
+			chapterNum := extractChapterTitle(line)
+			curChapter = chapter{chapterNum, []string{}}
+			continue
+		}
+
+		// 如果是正文，则当前行加入当前章节数据中
+		if isContent && len(line) > 0 {
+			curChapter.contents = append(curChapter.contents, line)
+		}
+
+	}
+	statsChapter(&curChapter)
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+```
+示例代码：`/chapter_file/guten1/guten1.go`
+
+这里，我们每遇到一个新章节，就把上一章节收集到数据（存放在一个`chapter`对象中）做一下统计打印出来。实际项目中，则应该是将这个章节的数据写入到章节文件与数据库中去。这部分内容我们在后面的数据库章节再详细探讨。
+
+现在运行程序，输出结果是这样的（由于输出太多，只显示后面几行）：
+
+```
+Chapter 55 has 209 lines
+Last line: they had been generally proved to be marked out for misfortune.
+Chapter 56 has 250 lines
+Last line: acknowledge the substance of their conversation was impossible.
+Chapter 57 has 146 lines
+Last line: his seeing too little, she might have fancied too much.
+Chapter 58 has 217 lines
+Last line: parted.
+Chapter 59 has 219 lines
+Last line: as Jane's.”
+Chapter 60 has 138 lines
+Last line: Pemberley.
+Chapter 61 has 108 lines
+Last line: End of the Project Gutenberg EBook of Pride and Prejudice, by Jane Austen
 ```
 
+观察输出，我们发现两个问题：
 
-### Task N：CSV金融数据分析
+1. 最后一章的结尾还多了一句正文之外的话。
+2. 每章最后一句都不是完整的句子。
 
-这里我们综合一下前面的话题，实现一个常用的文件I/O需求：读取压缩的csv日志文件，根据其中某一列筛选需要的数据，分析并计算某个字段。在UNIX中，我们常用awk来完成这个需求。
+这句话`End of the Project Gutenberg EBook of Pride and Prejudice, by Jane Austen`和结束分隔行的内容是冗余的，我也不知道古腾堡为什么要加上。但是显然得多加一句逻辑来处理。
 
-这类计算需求在数据型日志非常常见，比如金融数据（K线、Book/Trade数据等）、监控日志、统计日志等。由于日志量往往非常大，一般以压缩格式存取。利用Go语言的接口+管道特性，可以很方便地组合出各种类型的数据的读写函数。
+而第2个问题，仔细看看文本，才发现每行都不是完整的句子。古腾堡的文章是按照宽度换行的，真正的段落是使用多个空行分开来表示的。比如第一章开头：
 
-下面我们举得例子就是一个简化的股票交易日志，CSV每行的格式假定如下：
+```
+It is a truth universally acknowledged, that a single man in possession
+of a good fortune, must be in want of a wife.
 
-```csv
-交易时间,股票代码,买卖方向,价格,交易量
-09:30:31.256,SH601398,B,5.24,1000
+However little known the feelings or views of such a man may be on his
+first entering a neighbourhood, this truth is so well fixed in the minds
+of the surrounding families, that he is considered the rightful property
+of some one or other of their daughters.
+
+“My dear Mr. Bennet,” said his lady to him one day, “have you heard that
+Netherfield Park is let at last?”
+
+Mr. Bennet replied that he had not.
 ```
 
-假设日志记录的是每小时一个gz压缩文件，文件名格式是TRADE_20190116_09.log.gz。
+这里有四段话，每段之间有一个空白行表示分隔，而不是我们平时直接换行。而每段之内，句子到达一定宽度就直接换行了。比如第一行到了`in possesion`，就直接另起一行再接着写`of a good fortune`了。
+
+这显然不是我们想要的格式。因为最终我们的文本要显示在手机、平板、电脑等不同尺寸的屏幕上，需要实时自适应屏幕换行，而不是事先按照固定宽度换掉。所以我们需要把这些换行再合并回去。做到每段话是一行文字。
+
+另外再看看输出的开头：
+
+```
+Chapter  has 3 lines
+Last line: By Jane Austen
+Chapter 1 has 78 lines
+Last line: daughters married; its solace was visiting and news.
+```
+
+第一章之前，标题、作者那几句话，没有处理对。也要单独加上处理函数，来记录书本的meta信息。
+
+这样，经过改进，我们得到了第二版代码：
 
 ```go
-// TODO: implement this code
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+)
+
+// 判断正文开始的分隔行
+func isStartDelim(line string) bool {
+	return strings.HasPrefix(line, "*** START OF")
+}
+
+// 判断正文结尾的分隔行
+func isEndDelim(line string) bool {
+	return strings.HasPrefix(line, "*** END OF")
+}
+
+// 判断是否为章节标题行
+func isChapterTitle(line string) bool {
+	return strings.HasPrefix(line, "Chapter")
+}
+
+// 提取章节编号
+func extractChapterTitle(line string) string {
+	return strings.TrimSpace(line[len("Chapter"):])
+}
+
+type bookmeta struct {
+	title    string
+	author   string
+	language string
+}
+
+// 用来收集一个章节的数据结构
+type chapter struct {
+	title    string
+	contents []string
+}
+
+// 打印章节的统计信息
+func statsChapter(ch *chapter) {
+	if ch.title != "" { // 忽略掉第一章之前那段无效文字
+		fmt.Printf("Chapter %v has %v paragraphs.\n", ch.title, len(ch.contents))
+		fmt.Println("Last Paragraph:", ch.contents[len(ch.contents)-1])
+		fmt.Println()
+	}
+}
+
+// 检查书籍信息
+func checkMeta(meta *bookmeta, line string) {
+	titlePrefix := "Title: "
+	authorPrefix := "Author: "
+	langPrefix := "Language: "
+	if strings.HasPrefix(line, titlePrefix) {
+		meta.title = line[len(titlePrefix):]
+	} else if strings.HasPrefix(line, authorPrefix) {
+		meta.author = line[len(authorPrefix):]
+	} else if strings.HasPrefix(line, langPrefix) {
+		meta.language = line[len(langPrefix):]
+	}
+}
+
+func main() {
+	// 打开文件
+	file, err := os.Open("E:/books/gutenberg/pride_and_prejudice.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// 使用scanner按行读取
+	scanner := bufio.NewScanner(file)
+	isContent := false
+	var curChapter chapter
+	var meta bookmeta
+	// 需要一个slice来存放当前段落的每一行，遇到新空白行的时候，将之前收集到的多行合并为一行。
+	var curPara []string
+	for scanner.Scan() {
+		// 当前行
+		line := strings.TrimSpace(scanner.Text())
+
+		// 如果遇到正文开始分隔行，则进入正文
+		if isStartDelim(line) {
+			isContent = true
+			continue
+		}
+
+		// 如果遇到正文结束分隔行，则退出循环
+		if isEndDelim(line) {
+			// 处理正文结束分隔行前一句多余的内容
+			lastPos := len(curChapter.contents) - 1
+			lastPara := curChapter.contents[lastPos]
+			if strings.HasPrefix(lastPara, "End of the Project Gutenberg EBook") {
+				curChapter.contents = curChapter.contents[:lastPos]
+			}
+			break
+		}
+
+		// 读取meta信息
+		if !isContent {
+			checkMeta(&meta, line)
+		}
+
+		// 如果遇到新章节的标题
+		if isChapterTitle(line) {
+			// 处理上一章节
+			statsChapter(&curChapter)
+			// 创建新章节
+			chapterNum := extractChapterTitle(line)
+			curChapter = chapter{chapterNum, []string{}}
+			continue
+		}
+
+		// 如果是正文，则当前行加入当前章节数据中
+		if isContent {
+			if len(line) > 0 { // 文本
+				curPara = append(curPara, line)
+			} else { // 空行
+				if len(curPara) > 0 {
+					curChapter.contents = append(curChapter.contents, strings.Join(curPara, " "))
+					curPara = []string{}
+				}
+			}
+		}
+
+	}
+	// 处理最后一章
+	statsChapter(&curChapter)
+
+	// 打印书籍信息
+	fmt.Printf("Book Meta: %#v", meta)
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 ```
+参见示例代码：`/chapter_file/guten2/guten2.go`
+
+这里我们增加了`bookmeta`数据结构，然后在正文开始之前对它进行了分析。
+另外，在处理正文时，也区分了当前行是否为空行，如果是空行，则表示上一个段落结束了。我们增加了一个对列用来存放当前段落的每一行，并在段落结束时，将他们`Join()`在一起，这样就恢复了文本本来的段落关系。
+
+最后，打印出来的结果如下（只显示最后几行）：
+
+```
+Chapter 60 has 29 paragraphs.
+Last Paragraph: Mrs. Phillips's vulgarity was another, and perhaps a greater, tax on his forbearance; and though Mrs. Phillips, as well as her sister, stood in too much awe of him to speak with the familiarity which Bingley's good humour encouraged, yet, whenever she _did_ speak, she must be vulgar. Nor was her respect for him, though it made her more quiet, at all likely to make her more elegant. Elizabeth did all she could to shield him from the frequent notice of either, and was ever anxious to keep him to herself, and to those of her family with whom he might converse without mortification; and though the uncomfortable feelings arising from all this took from the season of courtship much of its pleasure, it added to the hope of the future; and she looked forward with delight to the time when they should be removed from society so little pleasing to either, to all the comfort and elegance of their family party at Pemberley.
+
+Chapter 61 has 15 paragraphs.
+Last Paragraph: With the Gardiners, they were always on the most intimate terms. Darcy, as well as Elizabeth, really loved them; and they were both ever sensible of the warmest gratitude towards the persons who, by bringing her into Derbyshire, had been the means of uniting them.
+
+Book Meta: main.bookmeta{title:"Pride and Prejudice", author:"Jane Austen", language:"English"}
+```
+
+可以看到现在每个章节里是一个个段落，而不是被固定宽度打断的一行行文字了。另外，最后一行也正确的输出了在正文前分析出来的书籍信息。
+
+有了书籍信息、每个章节的数据，我们就可以在下一章“数据库操作”的综合应用里，把他们写入到数据库中了。
+
+
 
 ## 1.7 扩展话题：相关第三方库赏析
 
