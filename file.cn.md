@@ -2021,13 +2021,46 @@ func main() {
 	}
 }
 ```
-参见github.com\EverydayTasksBookSeries\ETGoCode\chapter_file\file_manipulations\remove_dir\remove_dir.go
+参见`/chapter_file/file_manipulations/remove_dir/remove_dir.go`
 
-删除文件夹
+那如果我们想清空文件夹，但是不删除该文件夹本身呢？一种办法是利用`filepath.Glob()`找到文件夹中的所有子节点，然后再逐个调用`os.RemoveAll()`将它们分别完全删除。示例如下：
 
-删除文件树
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+func main() {
+	// 找到文件夹之下的所有子节点
+	files, err := filepath.Glob("D:/tmp/*")
+	if err != nil {
+		panic(err)
+	}
+	// 逐一删除每个文件或文件夹
+	n := 0
+	for _, f := range files {
+		err := os.RemoveAll(f)
+		if err != nil {
+			panic(err)
+		}
+		n++
+	}
+	fmt.Printf("%v nodes removed.\n", n)
+}
+```
+参见`/chapter_file/file_manipulations/clear_dir/clear_dir.go`
+
 
 ### Task N：重命名和移动
+
+Go标准库直接支持了重命名，`os.Rename()`：
+
+```go
+```
 
 ### Task N：复制文件
 
