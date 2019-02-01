@@ -45,8 +45,8 @@
 			- [新建文件夹](#新建文件夹)
 			- [综合起来](#综合起来)
 		- [Task N：删除文件](#task-n删除文件)
-		- [Task N：重命名和移动](#task-n重命名和移动)
 		- [Task N：复制文件](#task-n复制文件)
+		- [Task N：重命名和移动](#task-n重命名和移动)
 		- [Task N：修改文件状态](#task-n修改文件状态)
 		- [Task N：搜索](#task-n搜索)
 		- [Task N：同步](#task-n同步)
@@ -2054,23 +2054,86 @@ func main() {
 ```
 参见`/chapter_file/file_manipulations/clear_dir/clear_dir.go`
 
+### Task N：复制文件
 
 ### Task N：重命名和移动
 
 Go标准库直接支持了重命名，`os.Rename()`：
 
 ```go
+package main
+
+import "os"
+
+func main() {
+	err := os.Rename("D:/tmp/test.txt", "D:/tmp/test1.txt")
+	if err != nil {
+		panic(err)
+	}
+}
+```
+参见`/chapter_file/file_manipulations/rename_file/rename_file.go`
+
+这是文件路径不变，只改换名称的情况。实际上，`os.Rename()`支持路径目录的改变， 可以直接用来实现移动目录的功能：
+
+```go
+package main
+
+import "os"
+
+func main() {
+
+	// 新建目录
+	err := os.MkdirAll("D:/tmp1", 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	// 把文件移动到新目录
+	err = os.Rename("D:/tmp/test.txt", "D:/tmp1/test.txt")
+	if err != nil {
+		panic(err)
+	}
+}
+```
+参见`/chapter_file/file_manipulations/move_file/move_file.go`
+
+但是要注意，和UNIX系统的`mv`命令不同的是，不能直接移动到一个子目录中去，而需要用完整的路径，包括文件名。
+比如这里用的是`os.Rename("D:/tmp/test.txt", "D:/tmp1/test.txt")`，如果像`mv`命令那样，写成`os.Rename("D:/tmp/test.txt", "D:/tmp1/")`，则会报错：
+
+```
+panic: rename D:/tmp/test.txt D:/tmp1/: Access is denied.
 ```
 
-### Task N：复制文件
+另外，还有一个需要注意的问题，就是如果换了不同的驱动器，就无法移动了。会报如下错误：
+
+```
+panic: rename D:/tmp/test.txt E:/: The system cannot move the file to a different disk drive.
+```
+
+这时候，只能先复制，再删除源文件：
+
+```go
+// TODO
+```
 
 ### Task N：修改文件状态
 
+最后我们看看怎么修改文件状态，比如文件的权限。
+
+看完这些标准库支持的基本操作以后，我们来看一个高阶应用。
+
 ### Task N：搜索
+
+第三方工程[codesearch]()介绍
 
 ### Task N：同步
 
+模拟rsync功能
+
 ### Task N：文件备份
+
+定期备份
 
 ## 1.6 文件I/O的应用实例
 
