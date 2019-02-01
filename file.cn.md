@@ -47,6 +47,7 @@
 		- [Task N：删除文件](#task-n删除文件)
 		- [Task N：重命名和移动](#task-n重命名和移动)
 		- [Task N：复制文件](#task-n复制文件)
+		- [Task N：修改文件状态](#task-n修改文件状态)
 		- [Task N：搜索](#task-n搜索)
 		- [Task N：同步](#task-n同步)
 		- [Task N：文件备份](#task-n文件备份)
@@ -1956,9 +1957,71 @@ func createWithDir(path string) {
 
 ### Task N：删除文件
 
-删除文件
+删除文件也是非常常见的需求。我们先看看最简单的删除操作：
 
-批量删除
+```go
+package main
+
+import (
+	"os"
+)
+
+func main() {
+	err := os.Remove("D:/test.txt")
+	if err != nil { // 删除失败
+		panic(err)
+	}
+}
+```
+
+`os.Remove`删除单个文件，效果和UNIX系统的`rm`差不多。如果需要删除多个文件，我们就需要获取全部文件，分别调用了。
+
+那么有没有按照通配符删除文件的功能呢？类似于`rm test*.txt`。可惜，标准库没有直接提供这个功能，不过还好它提供了使用通配符查找文件的功能`filepath.Glob()`，我们可以使用这个函数来找到所有要删除的文件，再逐一删除即可：
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+func main() {
+	// 找到符合通配符的文件
+	files, err := filepath.Glob("D:/tmp/test*.txt")
+	if err != nil {
+		panic(err)
+	}
+	// 逐一删除每个文件
+	n := 0
+	for _, f := range files {
+		err := os.Remove(f)
+		if err != nil {
+			panic(err)
+		}
+		n++
+	}
+	fmt.Printf("%v files removed.\n", n)
+}
+```
+参见`/chapter_file/file_manipulations/remove_wildcard/remove_wildcard.go`
+
+如果想要删除文件夹，也可以直接调用`os.Remove()`，但是如果文件夹内容为空，则无法删除。这时候我们可以调用`os.RemoveAll()`来删除该文件夹中的所有内容，并且删除该文件夹。
+
+```go
+package main
+
+import "os"
+
+func main() {
+	err := os.RemoveAll("D:/tmp")
+	if err != nil { // 删除失败
+		panic(err)
+	}
+}
+```
+参见github.com\EverydayTasksBookSeries\ETGoCode\chapter_file\file_manipulations\remove_dir\remove_dir.go
 
 删除文件夹
 
@@ -1968,6 +2031,7 @@ func createWithDir(path string) {
 
 ### Task N：复制文件
 
+### Task N：修改文件状态
 
 ### Task N：搜索
 
