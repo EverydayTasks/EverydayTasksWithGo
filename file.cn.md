@@ -2056,6 +2056,44 @@ func main() {
 
 ### Task N：复制文件
 
+我们再来看看怎么复制文件。Go标准库提供了简单的复制功能`os.Copy()`，但这个函数只能从一个`Reader`把数据复制到另一个`Writer`中，并不能直接复制文件，所以我们需要自己封装：
+
+```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+)
+
+func main() {
+	src := "D:/tmp/test.txt"
+	dest := "E:/test.txt"
+
+	// 先在目标驱动器新建文件
+	oFile, err := os.Create(dest)
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't open dest file: %v", err))
+	}
+	defer oFile.Close()
+
+	// 复制文件
+	iFile, err := os.Open(src)
+	if err != nil {
+		panic("Couldn't open source file: " + src)
+	}
+	_, err = io.Copy(oFile, iFile)
+	iFile.Close()
+
+	if err != nil {
+		panic(fmt.Sprintf("Writing to output file failed: %v", err))
+	}
+
+}
+```
+
+
 ### Task N：重命名和移动
 
 Go标准库直接支持了重命名，`os.Rename()`：
@@ -2134,28 +2172,27 @@ func main() {
 	defer oFile.Close()
 
 	// 复制文件
-	func() { // scope for iFile.Close()
-		iFile, err := os.Open(src)
-		if err != nil {
-			panic("Couldn't open source file: " + src)
-		}
-		defer iFile.Close()
-		_, err = io.Copy(oFile, iFile)
+	iFile, err := os.Open(src)
+	if err != nil {
+		panic("Couldn't open source file: " + src)
+	}
+	_, err = io.Copy(oFile, iFile)
+	iFile.Close()
 
-		if err != nil {
-			panic(fmt.Sprintf("Writing to output file failed: %v", err))
-		}
-	}()
+	if err != nil {
+		panic(fmt.Sprintf("Writing to output file failed: %v", err))
+	}
+
 	// 复制成功，删除源文件
 	err = os.Remove(src)
 	if err != nil {
 		panic(fmt.Sprintf("Failed removing original file: %v", err))
 	}
 }
-
 ```
+参见`/chapter_file/file_manipulations/move_file_drive/remove_file_drive.go`
 
-注意，我们在复制文件的过程中使用了一个`func(){}()`的闭包，这样是为了给`defer iFile.Close()`提供一个scope，保证它能在copy的过程后成功关闭。如果不用这个闭包，直接defer，则会发现后面删除源文件的时候报错，因为此时句柄还没有关闭。
+我们把这个功能整理成一个工具函数，放在`goet`库里
 
 ### Task N：修改文件状态
 
