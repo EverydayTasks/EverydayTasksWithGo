@@ -2202,7 +2202,87 @@ func main() {
 
 ### Task N：搜索
 
-第三方工程[codesearch]()介绍
+如果我们想要搜索文件夹中某个文件，类似于UNIX系统的`find -name`功能，可以利用`filepath.Walk()`函数与`filepath.Match()`组合起来完成这个功能：
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+)
+
+func main() {
+	files := findFile("D:/tmp", "*.txt")
+	fmt.Println(files)
+}
+
+// 在dir目录中，找到符合pattern的文件
+func findFile(dir string, pattern string) []string {
+	var files []string
+	filepath.Walk(dir, func(path string, f os.FileInfo, _ error) error {
+		if !f.IsDir() {
+			matched, err := filepath.Match(pattern, filepath.Base(path))
+			if err != nil {
+				log.Printf("Error in matching pattern %v for file %v", pattern, path)
+				return err
+			}
+			if matched {
+				files = append(files, path)
+			}
+		}
+		return nil
+	})
+	return files
+}
+```
+参见`/chapter_file/file_manipulations/find_file/find_file.go`
+
+当然，这里举得例子其实只需要找`.txt`后缀的文件，这种需求也很常见，所以我们可以单独写一个寻找某个后缀名文件的函数：
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+func main() {
+	files := findFileExt("D:/tmp", ".txt")
+	fmt.Println(files)
+}
+
+// 在dir目录中，找到符合ext后缀的文件
+func findFileExt(dir string, ext string) []string {
+	var found []string
+	filepath.Walk(dir, func(path string, f os.FileInfo, _ error) error {
+		if !f.IsDir() {
+			if filepath.Ext(path) == ext {
+				found = append(found, path)
+			}
+		}
+		return nil
+	})
+	return found
+}
+```
+参见`/chapter_file/file_manipulations/find_file_ext/find_file_ext.go`
+
+如果想要更复杂的匹配模式，也可以用正则表达式来匹配，这里就不赘述了。实际开发中，考虑到性能需求，在搜索文件时，可能还要考虑忽略某些路径的功能，或者忽略隐藏文件等需求，这就需要个比较复杂的搜索类来实现了。等我开发出这个类之后，再来补充描述。
+
+在UNIX系统中，除了按文件名搜索，其实搜索文件内容的需求也非常常见。`find`命令也支持按`grep`来搜索，即`find -Hirn <pattern> <dir>`，这个命令是我使用Linux时最常用的命令之一。Go语言要实这功能，则需要`filepath.Walk()`和文件读取，扫描结合起来，算是一个比较复杂的需求了。我们在这里尝试实现一个简单的版本：
+
+```go
+TODO
+```
+
+真正要实用的话，还需要考虑更多的细节，所以我也在`goet`库里实现了这个功能，参见`<TODO:add link to goet>`
+
+第三方工程[codesearch](https://github.com/google/codesearch)实现了这些功能，并做成了一个独立的命令行工具，可以扫描包含大量文件的目录，建立索引，并轻松搜索代码。大家可以参看它的源码和文档，已经我写的库赏析`<TODO: add link>`。
 
 ### Task N：同步
 
