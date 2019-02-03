@@ -14,9 +14,6 @@ TODO: 阅读ioutil的代码和文档，补充其他没讲到的有用功能
 // TODO: implement backward reading N lines with Seek() and a buffer
 ```
 
-
-
-
 ### 内存映射
 
 参考第三方开源工程[mmap-go](https://github.com/edsrzf/mmap-go)。
@@ -79,6 +76,8 @@ TODO：Go Env Vars
 ### Task N: merge
 
 ### Task N: awk
+
+### Task N: tail -f
 
 ### Task N：CSV金融数据分析
 

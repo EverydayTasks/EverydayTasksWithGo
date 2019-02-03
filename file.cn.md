@@ -37,6 +37,7 @@
 		- [压缩文件读写](#压缩文件读写)
 			- [Task N：读取gzip文件](#task-n读取gzip文件)
 			- [Task N：写入gzip文件](#task-n写入gzip文件)
+		- [Task N： grep](#task-n-grep)
 		- [配置文件](#配置文件)
 	- [1.5 其他文件操作](#15-其他文件操作)
 		- [Task N：文件信息查询](#task-n文件信息查询)
@@ -50,7 +51,6 @@
 		- [Task N：修改文件状态](#task-n修改文件状态)
 		- [Task N：搜索](#task-n搜索)
 		- [Task N：同步](#task-n同步)
-		- [Task N：文件备份](#task-n文件备份)
 	- [1.6 文件I/O的应用实例](#16-文件io的应用实例)
 		- [Task N：古腾堡书籍的预处理](#task-n古腾堡书籍的预处理)
 			- [第1步，下载书籍](#第1步下载书籍)
@@ -1627,6 +1627,14 @@ func main() {
 
 同样的方法，也可以用于其他格式，如压缩的JSON/XML等。
 
+
+### Task N： grep
+
+我们前面介绍了按行读取文件，这里更进一步，加上对每行文本的简单匹配，实现类似UNIX系统的`grep`功能：
+
+```go
+```
+
 ### 配置文件
 
 另外，我们除了数据文件，还需要处理配置文件，因此这里也描述一下常用配置文件的读写。因为配置
@@ -2277,8 +2285,46 @@ func findFileExt(dir string, ext string) []string {
 在UNIX系统中，除了按文件名搜索，其实搜索文件内容的需求也非常常见。`find`命令也支持按`grep`来搜索，即`find -Hirn <pattern> <dir>`，这个命令是我使用Linux时最常用的命令之一。Go语言要实这功能，则需要`filepath.Walk()`和文件读取，扫描结合起来，算是一个比较复杂的需求了。我们在这里尝试实现一个简单的版本：
 
 ```go
-TODO
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"os"
+)
+
+func grepFile(file string, pattern string) (int64, error) {
+	patCount := int64(0)
+	f, err := os.Open(file)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		if bytes.Contains(scanner.Bytes(), []byte(pattern)) {
+			patCount++
+			fmt.Println(scanner.Text())
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return patCount, err
+	}
+	return patCount, nil
+}
+
+func main() {
+	pat := "said"
+	total, err := grepFile("E:/books/gutenberg/pride_and_prejudice.txt", pat)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nFound %d lines containing pattern %v\n", total, pat)
+}
+
 ```
+参见`/chapter_file/advanced/grep_file/grep_file.go`
 
 真正要实用的话，还需要考虑更多的细节，所以我也在`goet`库里实现了这个功能，参见`<TODO:add link to goet>`
 
@@ -2286,11 +2332,10 @@ TODO
 
 ### Task N：同步
 
-模拟rsync功能
+既然我们已经可以复制文件夹，那为什么还要讨论“同步”的功能呢？再复制一遍就可以了啊？在实际使用中，较大的目录如果多次复制，肯定是会消耗时间、计算能力的，因此我们希望有一个“如果文件相同，就跳过去；如果不同，则把最新的文件复制过去”的同步机制。这和UNIX系统的`rsync`命令类似。本节先考虑简单的情况，即同一个机器，两个目录如何实现这样的同步。
 
-### Task N：文件备份
 
-定期备份
+如果要同步不同机器上的目录，则需要更复杂的远程通讯功能。这个话题超出了本章的范围，我们可能会在本书后面的章节讲到。不过如果读者有兴趣，可以参考第三方库[go-sync](https://github.com/Redundancy/go-sync)，它实现了完整的ZSync/rsync功能，并配套了一个命令行工具。
 
 ## 1.6 文件I/O的应用实例
 
