@@ -48,7 +48,6 @@
 		- [Task N：删除文件](#task-n删除文件)
 		- [Task N：复制文件](#task-n复制文件)
 		- [Task N：重命名和移动](#task-n重命名和移动)
-		- [Task N：修改文件状态](#task-n修改文件状态)
 		- [Task N：搜索](#task-n搜索)
 		- [Task N：同步](#task-n同步)
 	- [1.6 文件I/O的应用实例](#16-文件io的应用实例)
@@ -1839,9 +1838,98 @@ func main() {
 
 ```
 
-了解了文件信息查询之后，我们看看怎么新建文件。
+另外，标准库还提供了几个函数用来修改文件状态：
 
-TODO: 文件信息修改
+- `os.Chmod()` - 修改文件权限
+- `os.Chown()` - 修改文件所有者
+- `os.Chtimes()` - 修改文件的最后访问时间(atime)与修改时间(mtime)
+
+我们简单列举一下它们的用法：
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+)
+
+func main() {
+
+	file := "D:/tmp/test.txt"
+
+	// 修改文件权限
+	err := os.Chmod(file, 0777)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// 修改atime和mtime
+	err = os.Chtimes(file, time.Now(), time.Now())
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// 修改文件所有者，参数是uid，用户ID，以及gid，组ID
+	// 注意这个函数只有在UNIX系统才有实际作用，Windows下返回错误
+	err = os.Chown(file, 1, 1)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+```
+参见`/chapter_file/file_manipulation/change_stat/change_stat.go`
+
+注意，`os.Chown`在Windows下并不支持，上述代码在Windows下运行会得到如下错误：
+
+```
+chown D:/tmp/test.txt: not supported by windows
+```
+
+如果需要在Linux下运行，需要先利用`user.Lookup()`，找到用户名对应的用户信息，再查找到`uid`和`gid`，才能调用`os.Chown()`：
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/user"
+	"strconv"
+)
+
+func main() {
+
+	file := "/home/etgo/test.txt"
+
+	user, err := user.Lookup("newuser")
+	if err != nil {
+		panic(err)
+	}
+
+	uid, err := strconv.Atoi(user.Uid)
+	if err != nil {
+		panic(err)
+	}
+
+	gid, err := strconv.Atoi(user.Gid)
+	if err != nil {
+		panic(err)
+	}
+	// 修改文件所有者，参数是uid，用户ID，以及gid，组ID
+	// 注意这个函数只有在UNIX系统才有实际作用，Windows下返回错误
+	err = os.Chown(file, uid, gid)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+```
+参见`/chapter_file/file_manipulation/change_own/change_own.go`
+
+这个例子假设你的用户名是`etgo`，并新建了一个新用户`newuser`，此时运行这段代码，会把`/home/etgo/test.txt`文件的`owner`转变为`newuser:newuser`。
+
 
 ### Task N：新建文件
 
@@ -2201,10 +2289,6 @@ func main() {
 参见`/chapter_file/file_manipulations/move_file_drive/remove_file_drive.go`
 
 我们把这个功能整理成一个工具函数，放在`goet`库里
-
-### Task N：修改文件状态
-
-最后我们看看怎么修改文件状态，比如文件的权限。
 
 看完这些标准库支持的基本操作以后，我们来看一个高阶应用。
 
