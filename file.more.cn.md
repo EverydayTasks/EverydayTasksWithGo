@@ -16,6 +16,22 @@ TODO: 阅读ioutil的代码和文档，补充其他没讲到的有用功能
 
 ### 内存映射
 
+内存映射有很多好处，不过我们平时似乎很少用到。
+
+实际上，GNU grep就用到了内存映射来提高性能：
+
+```
+Finally, when I was last the maintainer of GNU grep (15+ years ago...),
+GNU grep also tried very hard to set things up so that the *kernel*
+could ALSO avoid handling every byte of the input, by using mmap()
+instead of read() for file input.  At the time, using read() caused
+most Unix versions to do extra copying.  Since GNU grep passed out
+of my hands, it appears that use of mmap became non-default, but you
+can still get it via --mmap.  And at least in cases where the data
+is already file system buffer caches, mmap is still faster:
+```
+参见[why GNU grep is fast](https://lists.freebsd.org/pipermail/freebsd-current/2010-August/019310.html)
+
 参考第三方开源工程[mmap-go](https://github.com/edsrzf/mmap-go)。
 
 TODO: 描述mmap-go对内存映射的基本实现
@@ -34,16 +50,6 @@ TODO: 描述mmap-go对内存映射的基本实现
 一读多写
 
 多读多写
-
-### 重命名和移动
-
-### 复制文件
-
-### 文件信息查询
-
-### 搜索
-
-### 同步
 
 ### 文件备份
 

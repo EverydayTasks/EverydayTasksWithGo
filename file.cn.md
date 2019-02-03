@@ -1632,7 +1632,65 @@ func main() {
 我们前面介绍了按行读取文件，这里更进一步，加上对每行文本的简单匹配，实现类似UNIX系统的`grep`功能：
 
 ```go
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"os"
+)
+
+func grepFile(file string, pattern string) (int64, error) {
+	patCount := int64(0)
+	f, err := os.Open(file)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		if bytes.Contains(scanner.Bytes(), []byte(pattern)) {
+			patCount++
+			fmt.Println(scanner.Text())
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return patCount, err
+	}
+	return patCount, nil
+}
+
+func main() {
+	pat := "said"
+	total, err := grepFile("E:/books/gutenberg/pride_and_prejudice.txt", pat)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nFound %d lines containing pattern %v\n", total, pat)
+
+}
 ```
+参见`/chapter_file/advanced/grep_file/grep_file.go`
+
+这里我们只用了 `bytes.Contains()`函数来比较文件每一行与要查找到字符串。
+
+如果需要查找正则表达式，则在`scanner.Scan()`循环中改为使用正则即可：
+
+```go
+// 提前准备好正则表达式
+r, _ := regexp.Compile(pattern)
+for scanner.Scan() {
+	// 判断本行是否匹配
+	if r.MatchString(scanner.Text()) {
+		patCount++
+		fmt.Println(scanner.Text())
+	}
+}
+```
+
+这样的效率比直接对比要慢（Go官方的正则表达式匹配并不是最快的，具体见正则匹配章节的描述），所以你可以根据需求选择更合适的方案。
+
 
 ### 配置文件
 
@@ -2373,9 +2431,10 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 )
 
 func grepFile(file string, pattern string) (int64, error) {
@@ -2386,10 +2445,11 @@ func grepFile(file string, pattern string) (int64, error) {
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
+	r, _ := regexp.Compile("M.*Bennet")
 	for scanner.Scan() {
-		if bytes.Contains(scanner.Bytes(), []byte(pattern)) {
+		if r.MatchString(scanner.Text()) {
 			patCount++
-			fmt.Println(scanner.Text())
+			fmt.Println(file, ":", scanner.Text())
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -2398,17 +2458,28 @@ func grepFile(file string, pattern string) (int64, error) {
 	return patCount, nil
 }
 
-func main() {
-	pat := "said"
-	total, err := grepFile("E:/books/gutenberg/pride_and_prejudice.txt", pat)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("\nFound %d lines containing pattern %v\n", total, pat)
+func grepSearch(dir string, pattern string) int64 {
+	var total int64
+	filepath.Walk(dir, func(path string, f os.FileInfo, _ error) error {
+		if !f.IsDir() {
+			count, err := grepFile(path, pattern)
+			if err != nil {
+				fmt.Println(err)
+			}
+			total = total + count
+		}
+		return nil
+	})
+	return total
 }
 
+func main() {
+	pat := "said"
+	total := grepSearch("E:/books/gutenberg/", pat)
+	fmt.Printf("\nFound %d lines containing pattern %v\n", total, pat)
+}
 ```
-参见`/chapter_file/advanced/grep_file/grep_file.go`
+参见`/chapter_file/advanced/grep_search/grep_search.go`
 
 真正要实用的话，还需要考虑更多的细节，所以我也在`goet`库里实现了这个功能，参见`<TODO:add link to goet>`
 
@@ -2416,10 +2487,125 @@ func main() {
 
 ### Task N：同步
 
-既然我们已经可以复制文件夹，那为什么还要讨论“同步”的功能呢？再复制一遍就可以了啊？在实际使用中，较大的目录如果多次复制，肯定是会消耗时间、计算能力的，因此我们希望有一个“如果文件相同，就跳过去；如果不同，则把最新的文件复制过去”的同步机制。这和UNIX系统的`rsync`命令类似。本节先考虑简单的情况，即同一个机器，两个目录如何实现这样的同步。
+既然我们已经可以复制文件夹，那为什么还要讨论“同步”的功能呢？再复制一遍就可以了啊？在实际使用中，较大的目录如果多次复制，肯定是会消耗时间、计算能力的，因此我们希望有一个“如果文件相同，就跳过去；如果不同，则把最新的文件复制过去”的同步机制。这和UNIX系统的`rsync`命令类似。我们先考虑一个最简单的场景，即同一个机器，将A文件夹的内容单向同步到B文件夹。
+
+```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"time"
+)
+
+// isExist 判断文件是否存在
+func isExist(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, err
+	}
+	return true, err
+}
+
+// copy 复制文件内容
+func copy(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
+}
+
+// 将文件从src目录同步到dest目录，只拷贝更新的内容
+func syncDir(src string, dest string) error {
+
+	srcDirPath, err := filepath.Abs(src)
+	if err != nil {
+		panic(err)
+	}
+	// 遍历src目录
+	filepath.Walk(src, func(path string, f os.FileInfo, _ error) error {
+		// 对src目录中的每一个文件/目录，判断dest中是否存在
+		// 找到dest中对应的path
+		srcPath, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+		relPath := srcPath[len(srcDirPath):]
+		destPath := filepath.Join(dest, relPath)
+
+		fmt.Println(destPath)
+		// 如果是目录，就尝试新建目录
+		if f.IsDir() {
+			// 检查dest对象是否已经存在
+			exist, _ := isExist(destPath)
+			if exist {
+				// TODO: 处理已存在，但是目标不是文件夹的情况
+			} else { // 新建文件夹
+				os.MkdirAll(destPath, f.Mode())
+			}
+		} else { // 如果是文件，尝试新建文件
+			exist, _ := isExist(destPath)
+			stat, _ := os.Stat(destPath)
+			if exist {
+				// 处理已存在，但是目标不是文件夹的情况
+				srcMTime := f.ModTime()
+				destMTime := stat.ModTime()
+				srcSize := f.Size()
+				destsSize := stat.Size()
+				if !srcMTime.Equal(destMTime) || srcSize != destsSize {
+					copy(srcPath, destPath)
+				}
+			} else { // 新建文件
+				fmt.Println("create dest file:", destPath)
+				copy(srcPath, destPath)
+				os.Chtimes(destPath, time.Now(), f.ModTime())
+			}
+		}
+		return nil
+	})
+	return nil
+}
+
+func main() {
+	src := "D:/tmp/"
+	dest := "D:/tmp1/"
+
+	err := syncDir(src, dest)
+	if err != nil {
+		panic(err)
+	}
+}
+
+```
+参见`/chapter_file/file_manipulations/sync_dir/sync_dir.go`
 
 
-如果要同步不同机器上的目录，则需要更复杂的远程通讯功能。这个话题超出了本章的范围，我们可能会在本书后面的章节讲到。不过如果读者有兴趣，可以参考第三方库[go-sync](https://github.com/Redundancy/go-sync)，它实现了完整的ZSync/rsync功能，并配套了一个命令行工具。
+如果要同步不同机器上的目录，则需要更复杂的远程通讯功能。这个话题超出了本章的范围，我们可能会在本书后面的章节讲到。如果读者有兴趣，可以参考一下几个第三方库:
+
+- [syncthing](https://github.com/syncthing/syncthing) - 持续文件同步系统
+- [go-sync](https://github.com/Redundancy/go-sync) - 实现了完整的ZSync/rsync功能
+- [gut](https://github.com/tillberg/gut) - 实时双向文件夹同步
+
+我也会择机对这些库进行阅读和赏析，放在第三方库赏析页面上。
+
 
 ## 1.6 文件I/O的应用实例
 
