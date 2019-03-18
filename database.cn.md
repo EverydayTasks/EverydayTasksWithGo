@@ -27,14 +27,134 @@
 - Key/Value存储
   - redis
 
+那么应该用哪一个来实现NeoReads后台呢？
 
+首先排除Oracle，这个要收费。然后排除SQLServer，这个是Windows平台的。然后排除SQLite，这个性能不够，估计只能用在前端。然后排除redis，它的数据结构太简单，估计满足不了应用需求。
 
-## PostgreSQL
+这样，剩下的是PostgreSQL，MySQL和MongoDB
 
+这三个该怎么选择呢？
 
+这三个都有开源版本。但是经过调查，MongoDB已经于2018年修改了协议，不再允许其开源版本用于服务端商务应用。参见<https://www.mongodb.com/licensing/server-side-public-license>所以这个也得排除。
 
+其次是MySQL。MySQL采用GPL协议，倒是只要求用它开源就可以。但是MySQL已经被Oracle收购，考虑到Oracle的一贯作风，我觉得还是远离它比较好。
 
-## SQLite
+最后就只剩下了PostgreSQL。据我所查，它的协议是类BSD的，参见<https://www.postgresql.org/about/licence/>，因此可以完全免费试用，对商用也没有特殊要求。
+
+而且PostgreSQL的功能和MySQL，Oracle是一个量级的，完全够NeoReads的应用。它还内置支持JSON和文本检索，支持文本类应用更加方便。
+
+因此，PostgreSQL是我的首选数据库应用。
+
+接下来本章书的重点内容，都以PostgreSQL为示例介绍。最后再用单独的章节来分别介绍一下Go语言处理其他数据库时需要注意的问题，方便大家参考。
+
+总的来说，Go语言把数据库读写做成了通用的接口，因此，具体使用哪一种数据库，在接口层面区别不大。
+
+## Go语言数据库接口
+
+Go语言标准库里支持数据库读写的接口放在`database/sql`包中。要使用Go语言读写数据库，只要引用这个包，再引用对应数据库的实现包即可。
+
+要访问PostgreSQL，我们需要引入`pq`包，其地址是`https://github.com/lib/pq`
+
+我们先看一个最简单的示例：
+
+```go
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+
+	_ "github.com/lib/pq"
+)
+
+type student struct {
+	id   int64
+	name string
+}
+
+func main() {
+	connStr := "user=postgres dbname=hello sslmode=disable password=123456"
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := db.Query("SELECT * FROM student")
+	if err != nil {
+		panic(err)
+	}
+
+	for rows.Next() {
+		var s student
+		err = rows.Scan(&s.id, &s.name)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("[%v]:%v\n", s.id, s.name)
+	}
+}
+
+```
+
+上面的示例中，假设数据表`student`有如下结构：
+
+```sql
+CREATE TABLE student
+(
+    id bigint,
+    name character varying(20)
+)
+```
+
+可以看到，典型的数据库读取操作有三个步骤：
+
+- 使用`sql.Open()`函数建立数据库连接
+- 调用`db.Query()`进行SQL查询，返回的是一行行数据`rows`
+- 使用`rows.Next()`和`rows.Scan()`的组合来访问每一行数据的值
+
+基本上掌握了这个流程，就可以进行绝大多数的数据库查询操作了。
+
+我们再看看最简单的数据库插入操作：
+
+```go
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+
+	_ "github.com/lib/pq"
+)
+
+func main() {
+	connStr := "user=postgres dbname=hello sslmode=disable password=123456"
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := db.Exec("INSERT INTO student VALUES(4, '赵云')")
+	if err != nil {
+		panic(err)
+	}
+
+	rowCount, err := res.RowsAffected()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("rows affected = %d\n", rowCount)
+}
+
+```
+
+和查询操作类似，要执行一个插入语句，也需要三步：
+
+- 使用`sql.Open()`函数建立数据库连接
+- 调用`db.Exce()`执行SQL插入语句，返回的是一个result对象。
+- 使用`res.RowsAffected()`方法查询该操作影响的行数。
+
 
 ## 第三方库
 
